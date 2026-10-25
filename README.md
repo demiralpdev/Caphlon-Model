@@ -107,20 +107,28 @@ Protocol: `wiki.test.raw`, `-c 512 --chunks 40 -ngl 99 -t 4 --no-warmup -b 4096 
 
 ## Weights
 
-GitHub rejects files >100 MB per commit and >2 GiB per release asset, so the 6.87 GiB
-GGUF ships as **4 parts** on the release page:
+Weights are hosted on **Hugging Face** as a single file (no joining needed):
 
-**[⬇ Caphlon-Model v1.0.0 — download](https://github.com/demiralpdev/Caphlon-Model/releases/tag/v1.0.0)**
+**[⬇ huggingface.co/ssuasd/Caphlon-Model](https://huggingface.co/ssuasd/Caphlon-Model)**
 
 ```bash
-# download part-aa … part-ad and SHA256SUMS, then:
-cat part-aa part-ab part-ac part-ad > Caphlon-Model-IQ2_S.gguf
+# single file, resumable
+curl -L -C - -o Caphlon-Model-IQ2_S.gguf \
+  https://huggingface.co/ssuasd/Caphlon-Model/resolve/main/Caphlon-Model-IQ2_S.gguf
+
 shasum -a 256 Caphlon-Model-IQ2_S.gguf
 # expected: 8487b4e443834659b230e0bd529674ad65e068fc00380b996aaf11c873d63bc0
 # size:     7375122272 bytes
 ```
 
-Mirror: [`bitwarden/theleaf-k5-final`](https://www.kaggle.com/datasets/bitwarden/theleaf-k5-final) (Kaggle).
+Mirrors:
+
+- **GitHub Release** (4 parts + `SHA256SUMS`, for GitHub-only users): [v1.0.0](https://github.com/demiralpdev/Caphlon-Model/releases/tag/v1.0.0)
+  ```bash
+  cat part-aa part-ab part-ac part-ad > Caphlon-Model-IQ2_S.gguf
+  shasum -a 256 -c SHA256SUMS
+  ```
+- **Kaggle:** [`bitwarden/theleaf-k5-final`](https://www.kaggle.com/datasets/bitwarden/theleaf-k5-final)
 
 ## License and attribution
 

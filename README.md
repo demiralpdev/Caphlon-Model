@@ -12,6 +12,8 @@
 
 </div>
 
+**6.87 GiB · Qwen 3.8 27B · runs on 8 GB RAM** — project page: **https://caphlon.dev**
+
 ---
 
 ## What this is

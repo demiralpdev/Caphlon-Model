@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://demiralpdev.github.io/Caphlon-Model/sitemap.xml
+Sitemap: https://caphlon.dev/sitemap.xml

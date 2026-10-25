@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use this model, please cite it as below."
+title: "Caphlon-Model: A 6.87 GiB lightweight build of Qwen 3.8 27B"
+abstract: >-
+  A compact GGUF build of Qwen 3.8 27B (6.87 GiB, IQ2_S base) produced by
+  vocabulary merge-table reduction and hybrid-interval layer pruning.
+  Retains 92.9% of the base model's MMLU score and 96.7% HumanEval pass@1.
+authors:
+  - family-names: "Gündoğmuş"
+    given-names: "Demir Alp"
+    alias: "demiralpdev"
+    website: "https://github.com/demiralpdev"
+version: "1.0.0"
+date-released: "2026-10-25"
+license: "Apache-2.0"
+repository-code: "https://github.com/demiralpdev/Caphlon-Model"
+keywords:
+  - "Qwen 3.8 27B"
+  - "GGUF"
+  - "IQ2_S"
+  - "llama.cpp"
+  - "quantized language model"
+  - "lightweight 27B"
+  - "layer pruning"
+  - "vocabulary reduction"
+type: "software"

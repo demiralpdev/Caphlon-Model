@@ -1,0 +1,12 @@
+# Build artifacts and local scratch
+*.gguf
+*.bin
+*.safetensors
+*.part
+*.log
+tmp/
+scratch/
+.DS_Store
+__pycache__/
+*.pyc
+.venv/

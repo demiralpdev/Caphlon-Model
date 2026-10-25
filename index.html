@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Caphlon-Model — 6.87 GiB lightweight build of Qwen 3.8 27B (GGUF, 27B on 8 GB RAM)</title>
+<meta name="description" content="Caphlon-Model is a 6.87 GiB GGUF build of Qwen 3.8 27B: 96.7% HumanEval, 92.9% MMLU retention, runs on an 8 GB laptop or 8 GB GPU. No distillation — vocabulary reduction and hybrid-aware layer pruning. Built 25 October 2026." />
+<meta name="keywords" content="Caphlon-Model, Qwen 3.8 27B, Qwen3 27B GGUF, lightweight 27B, 6.87 GiB LLM, IQ2_S, llama.cpp, local LLM, laptop LLM, quantized language model, hybrid gated delta net, layer pruning, run 27B on 8GB RAM, offline coding assistant" />
+<meta name="author" content="Demir Alp Gündoğmuş (demiralpdev)" />
+<meta name="robots" content="index, follow, max-image-preview:large" />
+<link rel="canonical" href="https://demiralpdev.github.io/Caphlon-Model/" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Caphlon-Model — a 6.87 GiB build of Qwen 3.8 27B" />
+<meta property="og:description" content="Full 27B reasoning quality in a 6.87 GiB GGUF. 96.7% HumanEval, 92.9% MMLU retention, runs on 8 GB RAM. No distillation." />
+<meta property="og:url" content="https://demiralpdev.github.io/Caphlon-Model/" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Caphlon-Model — 6.87 GiB Qwen 3.8 27B" />
+<meta name="twitter:description" content="A 27B language model that fits on an 8 GB laptop. 96.7% HumanEval, 92.9% MMLU retention." />
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Caphlon-Model",
+  "alternateName": "Caphlon 27B Lightweight",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Linux, macOS, Windows",
+  "description": "A 6.87 GiB GGUF build of Qwen 3.8 27B produced by vocabulary merge-table reduction and hybrid-aware layer pruning; runs on 8 GB RAM.",
+  "version": "1.0.0",
+  "datePublished": "2026-10-25",
+  "license": "https://www.apache.org/licenses/LICENSE-2.0",
+  "codeRepository": "https://github.com/demiralpdev/Caphlon-Model",
+  "author": { "@type": "Person", "name": "Demir Alp Gündoğmuş", "alternateName": "demiralpdev", "url": "https://github.com/demiralpdev" },
+  "isBasedOn": { "@type": "SoftwareApplication", "name": "Qwen 3.8 27B" },
+  "keywords": "Qwen 3.8 27B, GGUF, IQ2_S, llama.cpp, local LLM, lightweight 27B, 6.87 GiB"
+}
+</script>
+<style>
+  :root{--bg:#0b0d12;--panel:#12151d;--line:#222836;--tx:#e6e9f0;--dim:#8b93a7;--acc:#7c9cff;--ok:#54d38a}
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1100px 500px at 50% -10%,#161c2e 0%,var(--bg) 60%);color:var(--tx);
+       font:16px/1.65 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Inter,sans-serif;padding:0 20px 80px}
+  .wrap{max-width:920px;margin:0 auto}
+  header{padding:72px 0 40px;text-align:center}
+  .badge{display:inline-block;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--acc);
+         border:1px solid var(--line);border-radius:999px;padding:6px 14px;margin-bottom:22px;background:#0f1420}
+  h1{font-size:clamp(34px,6vw,56px);line-height:1.08;margin:0 0 18px;letter-spacing:-.03em}
+  h1 span{background:linear-gradient(92deg,#9db4ff,#c9a6ff 55%,#7fe3c0);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{color:var(--dim);font-size:clamp(16px,2.3vw,20px);max-width:640px;margin:0 auto}
+  .sub b{color:var(--tx);font-weight:600}
+  .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:32px 0 0}
+  .btn{padding:12px 22px;border-radius:10px;border:1px solid var(--line);color:var(--tx);text-decoration:none;
+       background:var(--panel);font-weight:600;font-size:15px;transition:.18s}
+  .btn:hover{border-color:var(--acc);transform:translateY(-1px)}
+  .btn.pri{background:linear-gradient(180deg,#2c3d70,#1e2a4f);border-color:#3b5495}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin:56px 0}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
+  .stat .k{font-size:30px;font-weight:700;letter-spacing:-.02em}
+  .stat .k.ok{color:var(--ok)}
+  .stat .l{color:var(--dim);font-size:13px;margin-top:4px}
+  h2{font-size:22px;margin:52px 0 16px;letter-spacing:-.01em}
+  table{width:100%;border-collapse:collapse;font-size:14.5px;background:var(--panel);
+        border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line)}
+  th{color:var(--dim);font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.08em}
+  tr:last-child td{border-bottom:none}
+  td.n{font-variant-numeric:tabular-nums}
+  .ok{color:var(--ok);font-weight:600}
+  pre{background:#0a0c11;border:1px solid var(--line);border-radius:12px;padding:18px;overflow:auto;
+      font:13.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;color:#c8d2e8}
+  .note{color:var(--dim);font-size:14px;margin-top:10px}
+  .lic{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--acc);
+       border-radius:10px;padding:16px 18px;margin-top:14px;font-size:14.5px}
+  footer{margin-top:64px;padding-top:22px;border-top:1px solid var(--line);color:var(--dim);font-size:13.5px;text-align:center}
+  a{color:var(--acc)}
+  code{background:#0a0c11;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="badge">GGUF · IQ2_S · 25 October 2026</div>
+  <h1>Caphlon-Model<br /><span>Qwen 3.8 27B, in 6.87 GiB</span></h1>
+  <p class="sub">A <b>27B language model</b> that runs on an <b>8 GB laptop</b>.
+    No distillation, no student model — vocabulary reduction and hybrid-aware layer pruning
+    keep the full 27B topology.</p>
+  <div class="cta">
+    <a class="btn pri" href="https://github.com/demiralpdev/Caphlon-Model">GitHub repository</a>
+    <a class="btn" href="https://www.kaggle.com/datasets/bitwarden/theleaf-k5-final">Download weights</a>
+    <a class="btn" href="https://github.com/demiralpdev/Caphlon-Model#quickstart">Quickstart</a>
+  </div>
+</header>
+
+<div class="grid">
+  <div class="stat"><div class="k ok">6.87 GiB</div><div class="l">single GGUF file, full 27B</div></div>
+  <div class="stat"><div class="k ok">96.7%</div><div class="l">HumanEval pass@1 (29/30)</div></div>
+  <div class="stat"><div class="k ok">92.9%</div><div class="l">MMLU retention vs base</div></div>
+  <div class="stat"><div class="k">+3.85%</div><div class="l">English perplexity cost</div></div>
+</div>
+
+<h2>Benchmarks</h2>
+<table>
+  <tr><th>Test</th><th>Caphlon-Model</th><th>Base quant</th><th>Result</th></tr>
+  <tr><td>English perplexity (EN40)</td><td class="n">6.6088</td><td class="n">6.3638</td><td class="n">+3.85%</td></tr>
+  <tr><td>HumanEval, 30 problems</td><td class="n">29/30</td><td class="n">30/30</td><td class="ok">96.7%</td></tr>
+  <tr><td>MMLU, 502-question subset</td><td class="n">344/502</td><td class="n">370/502</td><td class="ok">92.9%</td></tr>
+</table>
+<p class="note">Measured 25 October 2026, Tesla T4, llama.cpp, temperature 0, thinking disabled.</p>
+
+<h2>Hardware requirements</h2>
+<table>
+  <tr><th>Setup</th><th>Minimum</th><th>Comfortable</th></tr>
+  <tr><td>GPU, full offload</td><td>8 GB VRAM (8K ctx)</td><td>12 GB VRAM (32K ctx)</td></tr>
+  <tr><td>CPU only</td><td>8 GB RAM (mmap)</td><td>16 GB RAM</td></tr>
+  <tr><td>Apple Silicon</td><td>16 GB unified</td><td>24 GB+</td></tr>
+  <tr><td>Disk</td><td>7 GB</td><td>—</td></tr>
+</table>
+
+<h2>Quickstart</h2>
+<pre>llama-server -m Caphlon-Model-IQ2_S.gguf \
+  -ngl 99 -c 32768 -np 1 \
+  -b 4096 -ub 1024 --flash-attn on \
+  --spec-type ngram-mod --spec-ngram-mod-n-match 24 \
+  --spec-ngram-mod-n-min 48 --spec-ngram-mod-n-max 64 \
+  --jinja --port 8080</pre>
+<p class="note">Measured on this build: 29.7 tok/s on file-edit workloads (2.34× the
+baseline 12.7), 12.4 tok/s on free-form prose. Send
+<code>chat_template_kwargs: {"enable_thinking": false}</code> or the model will spend
+your context on internal reasoning.</p>
+
+<h2>License and attribution</h2>
+<div class="lic">
+  Repository contents: <b>Apache-2.0</b>. Weights are derived from
+  <b>Qwen 3.8 27B</b>, distributed under <b>Apache-2.0</b> — the upstream license
+  governs them, permits commercial use, and requires that notices be retained.
+  <br /><br />
+  "Caphlon" is a project mark. Apache-2.0 grants no trademark rights: you may
+  redistribute the weights, but you may not present a modified build as official,
+  endorsed, or authored by this project.
+</div>
+
+<footer>
+  Caphlon-Model 1.0.0 · built 25 October 2026 · by
+  <a href="https://github.com/demiralpdev">demiralpdev</a> ·
+  <a href="https://github.com/demiralpdev/Caphlon-Model/blob/main/NOTICE.md">NOTICE</a> ·
+  base model Qwen 3.8 27B
+</footer>
+</div>
+</body>
+</html>

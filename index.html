@@ -1,36 +1,40 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Caphlon — 27B LLM on an 8 GB Laptop</title>
+<meta name="description" content="Caphlon is a 6.87 GiB GGUF build of Qwen 3.8 27B produced by vocabulary merge-table reduction and hybrid-aware layer pruning, designed to run locally within 8 GB RAM." />
 <meta name="theme-color" content="#0d0907" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23120c09'/%3E%3Ctext x='32' y='47' text-anchor='middle' font-family='Georgia,serif' font-weight='700' font-size='42' fill='%23d9a35b'%3EC%3C/text%3E%3C/svg%3E" />
-<title>Caphlon-Model — 6.87 GiB lightweight build of Qwen 3.8 27B (GGUF, 27B on 8 GB RAM)</title>
-<meta name="description" content="Caphlon-Model is a 6.87 GiB GGUF build of Qwen 3.8 27B: 96.7% HumanEval, 92.9% MMLU retention, runs on an 8 GB laptop or 8 GB GPU. No distillation — vocabulary reduction and hybrid-aware layer pruning. Built 25 October 2026." />
-<meta name="keywords" content="Caphlon-Model, Qwen 3.8 27B, Qwen3 27B GGUF, lightweight 27B, 6.87 GiB LLM, IQ2_S, llama.cpp, local LLM, laptop LLM, quantized language model, hybrid gated delta net, layer pruning, run 27B on 8GB RAM, offline coding assistant" />
-<meta name="author" content="Demir Alp Gündoğmuş (demiralpdev)" />
-<meta name="robots" content="index, follow, max-image-preview:large" />
-<link rel="canonical" href="https://caphlon.dev/" />
+<meta property="og:title" content="Caphlon — 27B LLM on an 8 GB Laptop" />
+<meta property="og:description" content="Full 27B reasoning compressed to 6.87 GiB. No distillation, no student model — the full 27B topology." />
 <meta property="og:type" content="website" />
-<meta property="og:title" content="Caphlon-Model — a 6.87 GiB build of Qwen 3.8 27B" />
-<meta property="og:description" content="Full 27B reasoning quality in a 6.87 GiB GGUF. 96.7% HumanEval, 92.9% MMLU retention, runs on 8 GB RAM. No distillation." />
 <meta property="og:url" content="https://caphlon.dev/" />
+<link rel="canonical" href="https://caphlon.dev/" />
+<meta property="og:image" content="assets/scene-canyon-back.webp" />
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="Caphlon-Model — 6.87 GiB Qwen 3.8 27B" />
-<meta name="twitter:description" content="A 27B language model that fits on an 8 GB laptop. 96.7% HumanEval, 92.9% MMLU retention." />
+<meta name="twitter:title" content="Caphlon — 27B LLM on an 8 GB Laptop" />
+<meta name="twitter:description" content="Full 27B reasoning compressed to 6.87 GiB on an 8 GB laptop." />
+<meta name="twitter:image" content="assets/scene-canyon-back.webp" />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23c4724a'/><text x='16' y='22' font-size='18' font-family='serif' font-weight='bold' fill='%23faf7f0' text-anchor='middle'>C</text></svg>" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Antonio:wght@700&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Antonio:wght@700&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=DM+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <link rel="preload" as="image" href="assets/scene-canyon-back.webp" />
+<link rel="preload" as="image" href="assets/world-mars.webp" />
+<link rel="preload" as="image" href="assets/world-sunset-arch.webp" />
+<link rel="preload" as="image" href="assets/world-cyber-city.webp" />
+<link rel="preload" as="image" href="assets/world-cyber-city-lights.webp" />
+<link rel="preload" as="image" href="assets/scene-dawn-back.webp" />
+<link rel="preload" as="image" href="assets/scene-canyon-cliffs-front.webp" />
 <link rel="preload" as="image" href="assets/tunnel-front.webp" />
 <link rel="preload" as="image" href="assets/tunnel-back.webp" />
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
-  "name": "Caphlon-Model",
-  "alternateName": "Caphlon 27B Lightweight",
-  "applicationCategory": "DeveloperApplication",
+  "name": "Caphlon",
+  "applicationCategory": "AIModel",
   "operatingSystem": "Linux, macOS, Windows",
   "description": "A 6.87 GiB GGUF build of Qwen 3.8 27B produced by vocabulary merge-table reduction and hybrid-aware layer pruning; runs on 8 GB RAM.",
   "version": "1.0.0",
@@ -48,585 +52,1041 @@
     --clay:#c4724a; --clay-hi:#e08a5c; --ochre:#d9a35b; --dusk:#1b2036;
     --serif:"Fraunces",Georgia,"Times New Roman",serif;
     --mono:"DM Mono",ui-monospace,Menlo,monospace;
-    /* Sahne ayarları — arka plan veya tünel geçişinde değişir */
     --video-filter:brightness(.50) saturate(.82) contrast(1.08);
     --tunnel-filter:brightness(.50) saturate(.82) contrast(1.08);
-    --title-top:20%;           /* başlığın stage içindeki konumu */
-    --title-size:18.5cqw;
   }
   *{box-sizing:border-box}
   .sr-only {
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
     overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
   }
-  .stage-svg {
-    position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 1;
-  }
-  .lens-text {
-    font-family: Impact, "Arial Narrow Bold", "Helvetica Inserat", sans-serif;
-    font-size: 380px;
-    letter-spacing: 0.015em;
-    text-anchor: middle;
-    text-transform: none;
-  }
 
-  html{scroll-behavior:smooth}
-  body{margin:0;background:var(--night);color:var(--paper);font:17px/1.7 var(--serif);
-       font-variation-settings:"opsz" 14,"SOFT" 30;-webkit-font-smoothing:antialiased}
-  a{color:var(--clay-hi);text-underline-offset:3px}
-  ::selection{background:var(--clay);color:var(--ink)}
+  html,body{
+    width:100%;height:100%;margin:0;padding:0;overflow:hidden;
+    background:var(--night);color:var(--paper);font:16.5px/1.7 var(--serif);
+    font-variation-settings:"opsz" 14,"SOFT" 20;-webkit-font-smoothing:antialiased;
+    touch-action:none;user-select:none;
+  }
+  a{color:var(--ochre);text-underline-offset:3px}
+  a:focus-visible,button:focus-visible{outline:2px solid var(--ochre);outline-offset:3px}
+  ::selection{background:var(--clay);color:#ffffff}
 
-  /* ───────── HERO ───────── */
-  .hero{position:relative;height:100svh;min-height:560px;overflow:hidden;background:#000;isolation:isolate}
+  /* ───────── NAVIGATION & LIVE HUD ───────── */
+  nav{position:fixed;z-index:50;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;
+      padding:16px clamp(18px,4vw,48px);font:600 12px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;
+      text-shadow:0 1px 8px rgba(10,6,4,.75);background:rgba(14,9,6,.88);backdrop-filter:blur(10px);
+      -webkit-backdrop-filter:blur(10px);border-bottom:1.5px solid rgba(239,227,201,.18)}
+  nav a{color:var(--paper);text-decoration:none;opacity:.88;transition:opacity .15s,color .15s}
+  nav a:hover{opacity:1;color:var(--ochre)}
+  nav .mark{font:700 22px/1 var(--serif);letter-spacing:-.015em;text-transform:none;opacity:1;font-variation-settings:"opsz" 72,"WONK" 1}
+  nav .links{display:flex;gap:clamp(12px,2.4vw,24px);align-items:center}
+
+  /* Hairline Real-time Progress Bar */
+  .nav-progress-bar{position:absolute;bottom:0;left:0;right:0;height:2.5px;background:rgba(239,227,201,.12);overflow:hidden}
+  .nav-progress-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--clay),var(--ochre));transition:width .22s cubic-bezier(.16,1,.3,1)}
+
+  /* Scroll Chapter Indicator / Jump Button */
+  .scene-hud{appearance:none;-webkit-appearance:none;cursor:pointer;display:inline-flex;align-items:center;gap:8px;
+             padding:7px 14px;background:rgba(20,13,7,.86);border:1.5px solid rgba(239,227,201,.42);
+             box-shadow:3px 3px 0 var(--clay);font:600 11px/1 var(--mono);letter-spacing:.12em;
+             color:var(--paper);transition:transform .12s,box-shadow .12s,background .15s,border-color .15s;
+             backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);user-select:none}
+  .scene-hud:hover{background:rgba(28,18,14,.96);border-color:var(--ochre);transform:translate(1px,1px);box-shadow:2px 2px 0 var(--clay)}
+  .scene-hud:active{transform:translate(3px,3px);box-shadow:0 0 0 var(--clay)}
+  .scene-hud .hud-dot{width:7px;height:7px;border-radius:50%;background:var(--ochre);box-shadow:0 0 6px var(--ochre);animation:hudPulse 2.4s infinite ease-in-out}
+  .scene-hud .hud-name{color:var(--paper);font-weight:600}
+  .scene-hud .hud-sep{opacity:.35}
+  .scene-hud .hud-btn{color:var(--ochre);font-weight:600}
+  @keyframes hudPulse{0%,100%{opacity:.6;transform:scale(.92)}50%{opacity:1;transform:scale(1.22)}}
+
+  /* ───────── LIVING 16:9 HERO STAGE & LAYER ARCHITECTURE ───────── */
+  .hero{position:fixed;inset:0;width:100%;height:100%;overflow:hidden;background:transparent;z-index:2;pointer-events:none}
   .stage{position:absolute;bottom:0;
-         --stage-w:max(100vw,calc(max(100svh,560px) * 16 / 9));
+         --stage-w:max(100vw,calc(100vh * 16 / 9));
          left:calc(50% - var(--stage-w) / 2);width:var(--stage-w);aspect-ratio:16/9}
-  .stage.stage-over{z-index:9;pointer-events:none}
   .stage>*{position:absolute;inset:0;width:100%;height:100%;display:block}
-  .layer-back{object-fit:cover;z-index:1}
-  .title{inset:auto;left:50%;transform:translateX(-50%);width:min(100%,100vw);top:var(--title-top);height:auto;z-index:2;margin:0;text-align:center;
-         font-family:var(--serif);font-weight:560;font-size:min(var(--title-size),14.2vw);line-height:.9;letter-spacing:-.015em;
-         font-variation-settings:"opsz" 144,"SOFT" 0,"WONK" 1;color:var(--paper);
-         text-shadow:0 .012em 0 #8a5a3a,0 0 .5em rgba(217,163,91,.18);
-         
-         will-change:transform}
-  .layer-front{object-fit:cover;z-index:3;pointer-events:none}
-  .rover{z-index:4;object-fit:cover;filter:var(--video-filter);pointer-events:none}
 
-  /* Tünel Geçiş Katmanları (3320x1080 panorama, 545.4 px/sn yol hızına 1:1 kilitli, GPU'da hazır) */
-  .tunnel-layer{position:absolute;bottom:0;top:auto;left:0;height:100.7%;width:calc(100% * 3320 / 1920);
+  /* Layer 1: Background World Scenes */
+  .world-scene{
+    position:absolute;inset:0;width:100%;height:100%;opacity:0;visibility:hidden;
+    transition:opacity .75s cubic-bezier(.4,0,.2,1), visibility .75s;
+    overflow:hidden;z-index:1;
+  }
+  .world-scene.active{opacity:1;visibility:visible}
+  .world-bg{
+    position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;
+    filter:brightness(.68) saturate(.92) contrast(1.05);
+  }
+  .world-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover;z-index:2;pointer-events:none}
+  .world-vignette{position:absolute;inset:0;pointer-events:none;z-index:3;
+                  background:radial-gradient(130% 100% at 50% 50%,transparent 45%,rgba(0,0,0,.68) 100%)}
+
+  /* Layer 2: Chapter 0 Caphlon Vivid Lens SVG */
+  .stage-svg{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:2}
+  .lens-text{
+    font-family:Impact,"Antonio","Arial Narrow Bold","Helvetica Inserat",sans-serif;
+    font-weight:700;font-size:380px;letter-spacing:0.015em;text-anchor:middle;text-transform:none;
+  }
+  .hero-title-group{
+    transition:opacity .5s cubic-bezier(.4,0,.2,1), transform .5s cubic-bezier(.4,0,.2,1);
+    transform-origin:center 45%;
+  }
+  .hero-title-group.hide-title{opacity:0;transform:scale(0.96) translateY(-20px)}
+
+  /* ───────── LAYER 5: STORY CONTENT VIEWPORT (UNDER CAR) ───────── */
+  .story-viewport{
+    position:absolute;inset:0;width:100%;height:100%;
+    z-index:5;pointer-events:none;
+    display:flex;align-items:flex-start;justify-content:center;
+  }
+
+  /* ───────── CHAPTER 0: HERO (CLEAN FLOATING TEXT, ZERO WHITE BOX) ───────── */
+  .hero-card{
+    position:absolute;
+    left:50%;transform:translateX(-50%);
+    width:min(640px,90vw);
+    text-align:center;
+    top:auto;
+    bottom:calc(max(26.5%, 155px) + 5.5svh);
+    background:transparent!important;
+    border:none!important;
+    box-shadow:none!important;
+    padding:0!important;
+    pointer-events:auto;
+    user-select:text;
+    opacity:0;visibility:hidden;
+    transition:opacity .45s ease, transform .45s ease, visibility .45s;
+    will-change:opacity, transform;
+  }
+  .hero-card.active{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0)}
+  .hero-card.exiting{opacity:0;transform:translateX(-50%) translateY(14px)}
+  .hero-card .tag{
+    font:500 11.5px/1 var(--mono);letter-spacing:.2em;text-transform:uppercase;color:var(--ochre);
+    margin:0 0 11px;text-shadow:0 1px 8px rgba(0,0,0,.9);
+  }
+  .hero-card .lede{
+    margin:0 auto 17px;font-size:clamp(17px,2vw,21px);line-height:1.5;color:var(--paper);
+    font-variation-settings:"opsz" 24,"SOFT" 60;text-shadow:0 1px 14px rgba(0,0,0,.92),0 2px 28px rgba(0,0,0,.7);
+    font-weight:450;
+  }
+  .hero-card .lede em{font-style:italic;color:var(--ochre);font-weight:600}
+  .hero-card .cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+
+  /* ───────── CHAPTERS 1, 2, 3, 4: SUBTLE TRANSLUCENT FROSTED BACKING ───────── */
+  /* Gives text crisp contrast without an opaque white square blocking the artwork */
+  .story-card:not(.hero-card){
+    position:absolute;
+    left:50%;transform:translateX(-50%);
+    top:clamp(74px, 9.5%, 115px);
+    width:min(680px, 92vw);
+    max-height:calc(100% - 240px);
+    overflow-y:auto;
+    pointer-events:auto;
+    user-select:text;
+    background:rgba(14, 9, 6, 0.82);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    border:1.5px solid rgba(239, 227, 201, 0.26);
+    box-shadow:0 16px 40px rgba(0, 0, 0, 0.65), 4px 4px 0 rgba(196, 114, 74, 0.35);
+    color:var(--paper);
+    padding:22px 26px;
+    border-radius:4px;
+    opacity:0;visibility:hidden;
+    clip-path:inset(0 100% 0 0);
+    transition:clip-path .72s cubic-bezier(.16,1,.3,1), opacity .35s ease, visibility .35s;
+    will-change:clip-path, opacity;
+  }
+  .story-card:not(.hero-card).active{
+    opacity:1;visibility:visible;
+    clip-path:inset(0 0% 0 0);
+  }
+  .story-card:not(.hero-card).exiting{
+    opacity:0;
+    clip-path:inset(0 0 0 100%);
+  }
+
+  /* Card header */
+  .card-header-row{
+    display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;
+    border-bottom:1.5px solid rgba(239,227,201,.18);padding-bottom:8px;
+  }
+  .card-kicker{
+    display:inline-block;padding:4px 10px;background:rgba(217,163,91,.15);color:var(--ochre);
+    border:1px solid var(--ochre);font:600 11px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;
+  }
+  .card-chap-tag{
+    font:600 11px/1 var(--mono);letter-spacing:.12em;color:var(--clay-hi);text-transform:uppercase;
+  }
+  .card-h{
+    margin:0 0 10px;font:600 clamp(22px,3.2vw,30px)/1.2 var(--serif);letter-spacing:-.015em;
+    font-variation-settings:"opsz" 48,"WONK" 1;color:var(--paper);
+  }
+  .card-desc{
+    margin:0 0 18px;font-size:clamp(15px,1.8vw,17px);line-height:1.5;color:var(--paper-dim);
+  }
+  .card-desc em{font-style:italic;color:var(--ochre);font-weight:600}
+
+  /* CTA Buttons */
+  .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;padding:12px 22px;border:2px solid var(--ink);
+    color:var(--ink);background:var(--paper);font:600 12px/1 var(--mono);letter-spacing:.08em;
+    text-decoration:none;text-transform:uppercase;box-shadow:4px 4px 0 var(--ink);
+    transition:transform .12s,box-shadow .12s,background .15s,color .15s;cursor:pointer;user-select:none;
+  }
+  .btn:hover{transform:translate(2px,2px);box-shadow:2px 2px 0 var(--ink);background:#ffffff}
+  .btn:active{transform:translate(4px,4px);box-shadow:0 0 0 var(--ink)}
+  .btn.pri{background:var(--clay);color:#1a0d06;border-color:var(--ink)}
+  .btn.pri:hover{background:var(--clay-hi);color:#1a0d06}
+  .btn.ghost{
+    background:rgba(13,9,7,.55);color:var(--paper);border-color:rgba(239,227,201,.35);
+    box-shadow:4px 4px 0 rgba(0,0,0,.5);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+  }
+  .btn.ghost:hover{background:rgba(28,18,14,.8);border-color:var(--ochre)}
+
+  /* Stat Tiles (Chapter 1) */
+  .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+  .stat-tile{
+    background:rgba(239,227,201,.06);border:1px solid rgba(239,227,201,.2);
+    padding:12px 10px;text-align:center;animation:statPop .45s cubic-bezier(.16,1,.3,1) both;
+  }
+  .stat-tile .k{font:700 clamp(20px,2.4vw,28px)/1.1 var(--display);color:var(--ochre);letter-spacing:.02em;margin-bottom:4px}
+  .stat-tile .l{font:500 10px/1.3 var(--mono);color:var(--paper-dim);text-transform:uppercase;letter-spacing:.06em}
+  @keyframes statPop{0%{transform:scale(.94);opacity:0}100%{transform:scale(1);opacity:1}}
+
+  /* Spec bars */
+  .bars{display:flex;flex-direction:column;gap:10px}
+  .bar .t{display:flex;justify-content:space-between;font:500 11.5px/1.2 var(--mono);color:var(--paper-dim);margin-bottom:4px}
+  .bar .t b{color:var(--paper)}
+  .bar .track{height:12px;background:rgba(239,227,201,.1);border:1px solid rgba(239,227,201,.25);position:relative;overflow:hidden}
+  .bar .fill{position:absolute;left:0;top:0;bottom:0;width:var(--v);
+             background:repeating-linear-gradient(135deg,var(--clay) 0 6px,#8d4a2b 6px 8px);
+             transition:width .9s cubic-bezier(.16,1,.3,1)}
+  .bar .fill.mem{background:repeating-linear-gradient(135deg,var(--ochre) 0 6px,#9e6e24 6px 8px)}
+
+  /* Benchmarks Table (Chapter 2) */
+  .tbl-wrap{overflow-x:auto;margin-bottom:14px;border:1px solid rgba(239,227,201,.2);background:rgba(14,9,6,.4)}
+  .tbl{width:100%;border-collapse:collapse;font:14px/1.35 var(--serif);text-align:left}
+  .tbl th{padding:10px 12px;font:600 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;
+          border-bottom:1.5px solid rgba(239,227,201,.3);background:rgba(239,227,201,.1);color:var(--clay-hi)}
+  .tbl td{padding:10px 12px;border-bottom:1px dashed rgba(239,227,201,.2);color:var(--paper)}
+  .tbl tr:last-child td{border-bottom:0}
+  .tbl td.c{font-family:var(--mono);font-size:12.5px;text-align:right}
+  .tbl td.hi{color:var(--ochre);font-weight:600}
+
+  /* Terminal CLI Box (Chapter 3) */
+  .term-box{background:#0a0605;border:1.5px solid rgba(239,227,201,.3);box-shadow:4px 4px 0 var(--clay);
+            color:#faf7f0;padding:12px 16px 14px;margin-bottom:14px;font:500 13px/1.5 var(--mono)}
+  .term-bar{display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;margin-bottom:8px;border-bottom:1px solid rgba(255,255,255,.15)}
+  .term-dots{display:flex;gap:6px}
+  .term-dot{width:9px;height:9px;border-radius:50%;border:1px solid #140d07}
+  .term-dot:nth-child(1){background:#e06c55}
+  .term-dot:nth-child(2){background:#d9a35b}
+  .term-dot:nth-child(3){background:#7ba864}
+  .term-box code{color:#e8d9b8;word-break:break-all}
+  .copy-btn{padding:5px 12px;font:600 11px/1 var(--mono);letter-spacing:.08em;background:var(--clay);color:#1a0d06;
+            border:1px solid var(--paper);cursor:pointer;transition:transform .1s,background .15s}
+  .copy-btn:hover{background:var(--clay-hi);color:#1a0d06;transform:translate(1px,1px)}
+  .hw-bullets{margin:0;padding-left:18px;font-size:13.5px;line-height:1.55;color:var(--paper-dim)}
+  .hw-bullets b{color:var(--paper)}
+
+  /* ───────── LAYER 7: FOREGROUND CANYON CLIFFS ───────── */
+  .scene-cliffs-front-layer{position:absolute;inset:0;width:100%;height:100%;z-index:7;pointer-events:none;transition:opacity .45s ease,visibility .45s ease}
+  .scene-cliffs-front-layer.hide-cliffs{opacity:0;visibility:hidden}
+  .scene-cliffs-front-layer img{width:100%;height:100%;object-fit:cover;display:block}
+
+  /* ───────── LAYER 8 & 15: ROCK TUNNEL PASSAGE ───────── */
+  .tunnel-layer{position:absolute;top:-1.6%;bottom:auto;left:0;height:103.6%;width:calc(100% * 3320 / 1920);
                 pointer-events:none;will-change:transform;opacity:0;visibility:hidden;
                 transform:translate3d(-106%, 0, 0);
                 filter:var(--tunnel-filter)}
   .tunnel-layer.active{opacity:1;visibility:visible}
-  .tunnel-layer.back{z-index:3}
-  .tunnel-layer.front{z-index:1}
+  .tunnel-layer.back{z-index:8}
+  .tunnel-layer.front{z-index:15}
   .tunnel-layer img{width:100%;height:100%;object-fit:fill;display:block}
 
-  .hero::after{content:"";position:absolute;left:0;right:0;bottom:0;height:22%;z-index:10;pointer-events:none;
-                background:linear-gradient(180deg,transparent,var(--night) 92%)}
-  .hero::before{content:"";position:absolute;inset:0;z-index:10;pointer-events:none;
-               background:radial-gradient(120% 90% at 50% 40%,transparent 55%,rgba(0,0,0,.55) 100%)}
+  /* ───────── LAYER 10: ROVER LOOPING CAMPER VAN ───────── */
+  .rover{z-index:10;object-fit:cover;filter:var(--video-filter);pointer-events:none}
 
-  nav{position:absolute;z-index:12;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;
-      padding:22px clamp(18px,4vw,48px);font:500 12px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase}
-  nav a{color:var(--paper);text-decoration:none;opacity:.8;transition:opacity .15s}
-  nav a:hover{opacity:1;color:var(--ochre)}
-  nav .mark{font:600 20px/1 var(--serif);letter-spacing:-.01em;text-transform:none;opacity:1;font-variation-settings:"opsz" 72,"WONK" 1}
-  nav .links{display:flex;gap:clamp(12px,2.5vw,28px);align-items:center}
+  /* ───────── HERO BOTTOM SCROLL HINT ───────── */
+  .scroll-hint{
+    position:fixed;z-index:11;left:50%;bottom:18px;transform:translateX(-50%);font:500 10.5px/1 var(--mono);
+    letter-spacing:.3em;color:var(--paper-dim);text-transform:uppercase;opacity:.75;pointer-events:auto;
+    cursor:pointer;transition:opacity .3s, transform .3s;
+  }
+  .scroll-hint.hide-hint{opacity:0;pointer-events:none;transform:translateX(-50%) translateY(8px)}
 
-  /* Diegetic Scene Switcher HUD */
-  .scene-hud{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:7px;
-             padding:6px 12px;background:rgba(18,12,9,.65);border:1px solid rgba(239,227,201,.25);
-             box-shadow:3px 3px 0 var(--clay);font:500 11px/1 var(--mono);letter-spacing:.12em;
-             color:var(--paper);transition:transform .12s,box-shadow .12s,background .15s,border-color .15s;
-             backdrop-filter:blur(4px);user-select:none}
-  .scene-hud:hover{background:rgba(28,18,14,.88);border-color:var(--ochre);transform:translate(1px,1px);box-shadow:2px 2px 0 var(--clay)}
-  .scene-hud:active{transform:translate(3px,3px);box-shadow:0 0 0 var(--clay)}
-  .scene-hud .hud-dot{width:6px;height:6px;border-radius:50%;background:var(--ochre);box-shadow:0 0 6px var(--ochre);animation:hudPulse 2.4s infinite ease-in-out}
-  .scene-hud.active .hud-dot{background:var(--clay-hi);box-shadow:0 0 8px var(--clay-hi)}
-  .scene-hud .hud-name{color:var(--paper);font-weight:500}
-  .scene-hud .hud-btn{color:var(--ochre);font-weight:600;margin-left:3px}
-  @keyframes hudPulse{0%,100%{opacity:.6;transform:scale(.9)}50%{opacity:1;transform:scale(1.2)}}
+  /* ───────── BOTTOM CHAPTER PROGRESS NAVIGATOR (CHAPTER 1+) ───────── */
+  .chapter-progress{
+    position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:40;
+    display:flex;align-items:center;gap:10px;padding:6px 16px;
+    background:rgba(14,9,6,.86);border:1.5px solid rgba(239,227,201,.32);
+    box-shadow:0 4px 16px rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+    opacity:0;pointer-events:none;transition:opacity .35s, transform .35s;
+    transform:translateX(-50%) translateY(8px);
+  }
+  .chapter-progress.show-nav{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0)}
+  .chap-dot{
+    width:8px;height:8px;border-radius:50%;background:rgba(239,227,201,.35);cursor:pointer;
+    border:1px solid #140d07;transition:background .2s, transform .2s;
+  }
+  .chap-dot.active{background:var(--ochre);transform:scale(1.4);box-shadow:0 0 6px var(--ochre)}
+  .chap-scroll-hint{
+    font:600 10.5px/1 var(--mono);letter-spacing:.16em;color:var(--paper);text-transform:uppercase;
+    display:flex;align-items:center;gap:6px;cursor:pointer;
+  }
+  .chap-scroll-hint .arr{animation:scrollBob 2s infinite ease-in-out;display:inline-block}
+  @keyframes scrollBob{0%,100%{transform:translateY(-1px)}50%{transform:translateY(3px)}}
 
-  .intro{position:absolute;z-index:2;left:50%;transform:translateX(-50%);
-         width:min(640px,90vw);text-align:center;top:auto;bottom:calc(max(28.5%, 165px) + 8svh)}
-  .tag{font:500 11.5px/1 var(--mono);letter-spacing:.2em;text-transform:uppercase;color:var(--ochre);margin:0 0 11px}
-  .lede{margin:0 auto 17px;font-size:clamp(17px,2vw,21px);line-height:1.5;color:var(--paper);
-        font-variation-settings:"opsz" 24,"SOFT" 60;text-shadow:0 1px 14px rgba(0,0,0,.85)}
-  .lede em{font-style:italic;color:var(--ochre)}
-  .cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
-  .btn{display:inline-block;padding:13px 22px;border:2px solid var(--ink);color:var(--ink);background:var(--paper);
-       font:500 13px/1 var(--mono);letter-spacing:.06em;text-decoration:none;text-transform:uppercase;
-       box-shadow:5px 5px 0 var(--ink);transition:transform .12s,box-shadow .12s}
-  .btn:hover{transform:translate(2px,2px);box-shadow:3px 3px 0 var(--ink)}
-  .btn:active{transform:translate(5px,5px);box-shadow:0 0 0 var(--ink)}
-  .btn.pri{background:var(--clay);color:#1a0d06}
-  .btn.ghost{background:rgba(13,9,7,.55);color:var(--paper);border-color:var(--paper-dim);box-shadow:5px 5px 0 rgba(239,227,201,.25);backdrop-filter:blur(3px)}
-
-  .scroll-hint{position:absolute;z-index:11;left:50%;bottom:18px;transform:translateX(-50%);font:500 10.5px/1 var(--mono);
-               letter-spacing:.3em;color:var(--paper-dim);text-transform:uppercase;opacity:.7}
-
-  /* ───────── İÇERİK ───────── */
-  main{position:relative;background:var(--night);padding:0 clamp(18px,4vw,48px) 40px}
-  .wrap{max-width:980px;margin:0 auto}
-  section{padding:72px 0 8px}
-  .sec-h{display:flex;align-items:baseline;gap:16px;margin:0 0 30px}
-  .sec-h .n{font:500 12px/1 var(--mono);color:var(--clay-hi);letter-spacing:.12em}
-  h2{margin:0;font-size:clamp(28px,4vw,40px);font-weight:520;line-height:1.05;letter-spacing:-.02em;
-     font-variation-settings:"opsz" 96,"SOFT" 0,"WONK" 1}
-  .sec-h::after{content:"";flex:1;height:7px;align-self:center;opacity:.55;
-     background:repeating-linear-gradient(135deg,var(--paper-dim) 0 1px,transparent 1px 5px)}
-
-  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:0;margin-top:0;border-top:2px solid var(--paper);border-bottom:2px solid var(--paper)}
-  .stat{padding:26px 22px 22px;border-left:1px dashed rgba(239,227,201,.3)}
-  .stat:first-child{border-left:0;padding-left:0}
-  .stat .k{font-size:clamp(38px,5vw,54px);line-height:1;font-weight:500;letter-spacing:-.03em;font-variation-settings:"opsz" 144,"WONK" 1}
-  .stat .k.ok{color:var(--ochre)}
-  .stat .l{font:400 12px/1.5 var(--mono);color:var(--paper-dim);margin-top:10px;text-transform:uppercase;letter-spacing:.06em}
-
-  .bars{margin:34px 0 0;display:grid;gap:18px}
-  .bar .t{display:flex;justify-content:space-between;font:400 12.5px/1 var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--paper-dim);margin-bottom:8px}
-  .bar .t b{color:var(--paper);font-weight:500}
-  .bar .track{height:22px;border:2px solid var(--paper);position:relative}
-  .bar .fill{position:absolute;inset:0 auto 0 0;width:var(--v);transform-origin:left;
-     background:repeating-linear-gradient(135deg,var(--clay) 0 6px,#8d4a2b 6px 8px)}
-  .js .bar .fill{transform:scaleX(0);transition:transform 1.2s cubic-bezier(.2,.8,.2,1)}
-  .js .bar.in .fill{transform:scaleX(1)}
-
-  .tbl{width:100%;border-collapse:collapse;font:400 14px/1.45 var(--mono)}
-  .tbl th,.tbl td{text-align:left;padding:13px 14px 13px 0;border-bottom:1px dashed rgba(239,227,201,.28)}
-  .tbl th{font-weight:500;font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--clay-hi);border-bottom:2px solid var(--paper)}
-  .tbl td.n{font-variant-numeric:tabular-nums}
-  .tbl .ok{color:var(--ochre);font-weight:500}
-  .scroll-x{overflow-x:auto}
-  .note{font:400 13px/1.6 var(--mono);color:var(--paper-dim);margin:14px 0 0}
-  code{font-family:var(--mono);font-size:.86em;background:#241810;border:1px solid rgba(239,227,201,.18);padding:1px 6px}
-
-  .term{position:relative;background:#0a0605;border:2px solid var(--paper);box-shadow:6px 6px 0 var(--clay)}
-  .term-bar{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-bottom:1px dashed rgba(239,227,201,.3);
-            font:500 11px/1 var(--mono);letter-spacing:.16em;color:var(--paper-dim);text-transform:uppercase}
-  .term button{all:unset;cursor:pointer;color:var(--ochre);font:500 11px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase}
-  .term button:hover{color:var(--paper)}
-  pre{margin:0;padding:18px 18px 20px;overflow:auto;font:13.5px/1.7 var(--mono);color:#e8d9b8}
-  pre .c{color:var(--clay-hi)}
-
-  .lic{border:2px solid var(--ink);background:var(--paper);color:#2a1d12;padding:26px 28px;box-shadow:8px 8px 0 var(--clay);font-size:16px;line-height:1.65}
-  .lic b{color:var(--ink)}
-  .lic hr{border:0;border-top:1px dashed #8a7656;margin:16px 0}
-
-  footer{max-width:980px;margin:90px auto 0;padding:24px 0 40px;border-top:2px solid var(--paper);
-         font:400 12.5px/1.8 var(--mono);color:var(--paper-dim);display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
-  footer a{color:var(--paper)}
-
-  @media (max-width:640px){
-    nav{padding:14px 18px}
-    nav .links{gap:10px}
+  @media (max-width:680px){
+    nav{padding:12px 16px}
+    nav .mark{font-size:18px}
     nav .links a:not(.keep){display:none}
-    .scene-hud{padding:5px 9px;font-size:10px}
-    .scene-hud .hud-name{display:none}
-    text.lens-text{font-size:108px!important;letter-spacing:0.02em!important}
-    .intro{bottom:38.5%!important;width:90vw!important}
-    .tag{font-size:10.5px;margin-bottom:8px}
-    .lede{font-size:15px!important;line-height:1.45;margin-bottom:14px}
-    .cta{gap:10px}
-    .btn{padding:11px 16px;font-size:12px}
-    .stat{border-left:0;border-top:1px dashed rgba(239,227,201,.3);padding-left:0}
-    .stat:first-child{border-top:0}
+    .scene-hud .hud-name,.scene-hud .hud-sep{display:none}
+    text.lens-text{font-size:132px!important;letter-spacing:0.01em!important}
+    .hero-card{bottom:calc(max(26%, 140px) + 2svh)}
+    .hero-card .lede{font-size:15.5px!important}
+    .story-card:not(.hero-card){
+      top:clamp(56px, 8.5vh, 72px);
+      width:94vw;
+      max-height:calc(100% - 220px);
+      padding:16px 18px;
+    }
+    .stats-grid{grid-template-columns:repeat(2,1fr);gap:8px}
+    .stat-tile{padding:10px 8px}
+    .stat-tile .k{font-size:22px}
+    .btn{padding:10px 14px;font-size:11px}
   }
   @media (prefers-reduced-motion:reduce){
-    html{scroll-behavior:auto}
-    .js .bar .fill{transition:none;transform:none}
+    .story-card{transition:none!important;clip-path:none!important}
+    .chap-scroll-hint .arr,.scene-hud .hud-dot{animation:none!important}
   }
 </style>
 </head>
 <body>
 
-<header class="hero" id="top">
-  <nav>
-    <a class="mark" href="#top">Caphlon</a>
-    <div class="links">
-      <button type="button" class="scene-hud" id="scene-hud" title="Tünelden geç ve sahneyi değiştir">
-        <span class="hud-dot"></span>
-        <span class="hud-name" id="hud-scene-name">Midnight Canyon</span>
-        <span class="hud-btn">TUNNEL →</span>
-      </button>
-      <a href="#numbers">Numbers</a>
-      <a href="#run">Run it</a>
-      <a class="keep" href="https://github.com/demiralpdev/Caphlon-Model">GitHub</a>
-    </div>
-  </nav>
+<!-- TOP NAVIGATION WITH REAL-TIME PROGRESS INDICATOR -->
+<nav id="site-nav">
+  <a class="mark" href="#top" aria-label="Caphlon home" id="nav-brand">Caphlon</a>
+  <div class="links">
+    <button class="scene-hud" id="scene-hud" type="button" aria-label="Current chapter indicator">
+      <span class="hud-dot" aria-hidden="true"></span>
+      <span class="hud-name" id="hud-scene-name">Sandstone Arch</span>
+      <span class="hud-sep">·</span>
+      <span class="hud-btn" id="hud-next-label">TUNNEL →</span>
+    </button>
+    <a href="#numbers" id="nav-link-numbers">Numbers</a>
+    <a href="#benchmarks" id="nav-link-bench">Benchmarks</a>
+    <a class="keep" href="#run" id="nav-link-run">Run it</a>
+    <a class="keep" href="https://github.com/demiralpdev/Caphlon-Model" target="_blank" rel="noopener">GitHub</a>
+  </div>
+  <div class="nav-progress-bar" aria-hidden="true">
+    <div class="nav-progress-fill" id="nav-progress-fill"></div>
+  </div>
+</nav>
 
-  <!-- Katmanlar (arkadan öne): sahne-arka → başlık → kanyon-ön (gökyüzü şeffaf) → araç videosu -->
+<!-- FIXED HERO STAGE: 7-LAYER MOEBIUS CANYON DIORAMA -->
+<header class="hero" id="top">
   <div class="stage" id="stage">
     <h1 class="sr-only">Caphlon</h1>
-    <svg class="stage-svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <defs>
-        <!-- True-Color Vivid Lens: Amplifies natural scene colors, saturation & exposure without tinting -->
-        <filter id="vibrant-boost" color-interpolation-filters="sRGB">
-          <!-- 1. Boost natural color saturation 3.2x -->
-          <feColorMatrix type="saturate" values="3.2" result="sat"/>
-          <!-- 2. Exposure & contrast lift so hidden canyon strata & cosmic sky pop vividly -->
-          <feComponentTransfer in="sat" result="bright">
-            <feFuncR type="gamma" amplitude="2.2" exponent="0.75" offset="0.08"/>
-            <feFuncG type="gamma" amplitude="2.2" exponent="0.75" offset="0.08"/>
-            <feFuncB type="gamma" amplitude="2.4" exponent="0.72" offset="0.14"/>
-          </feComponentTransfer>
-        </filter>
 
-        <!-- Neutral starlight halo behind letters (soft ivory, NO orange dye) -->
-        <filter id="starlight-halo" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="16" result="blur"/>
-          <feComponentTransfer in="blur">
-            <feFuncA type="linear" slope="0.35"/>
-          </feComponentTransfer>
-        </filter>
+    <!-- ───────── LAYER 1: 5 AUTHENTIC MOEBIUS WORLDS ───────── -->
+    <!-- WORLD SCENE 0: Sandstone Arch Canyon with Caphlon Vivid Lens -->
+    <div class="world-scene active" id="ws-0">
+      <svg class="stage-svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <!-- True-Color Vivid Lens: 3.2x Saturation Boost with Contrast Lift -->
+          <filter id="vibrant-boost" color-interpolation-filters="sRGB">
+            <feColorMatrix type="saturate" values="3.2" result="sat"/>
+            <feComponentTransfer in="sat" result="bright">
+              <feFuncR type="gamma" amplitude="2.2" exponent="0.75" offset="0.08"/>
+              <feFuncG type="gamma" amplitude="2.2" exponent="0.75" offset="0.08"/>
+              <feFuncB type="gamma" amplitude="2.4" exponent="0.72" offset="0.14"/>
+            </feComponentTransfer>
+          </filter>
 
-        <!-- Text mask using Impact Ultra-Condensed / Compressed font -->
-        <mask id="text-mask">
-          <text id="svg-title-mask" class="lens-text" x="960" y="462" fill="#ffffff">Caphlon</text>
-        </mask>
-      </defs>
+          <filter id="starlight-halo" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="16" result="blur"/>
+            <feComponentTransfer in="blur">
+              <feFuncA type="linear" slope="0.35"/>
+            </feComponentTransfer>
+          </filter>
 
-      <!-- Layer 1: Canyon backgrounds (all 3 pre-decoded in DOM to prevent swap flash) -->
-      <g id="svg-bg-back-group">
-        <image class="scene-back" href="assets/scene-canyon-back.webp" width="1920" height="1080" opacity="1"/>
-        <image class="scene-back" href="assets/scene-dusk-back.webp" width="1920" height="1080" opacity="0"/>
-        <image class="scene-back" href="assets/scene-dawn-back.webp" width="1920" height="1080" opacity="0"/>
-      </g>
+          <mask id="text-mask">
+            <text id="svg-title-mask" class="lens-text" x="960" y="462" fill="#ffffff">Caphlon</text>
+          </mask>
+        </defs>
 
-      <!-- Subtle starlight halo behind letters -->
-      <g opacity="0.3" id="svg-title-bloom">
-        <text class="lens-text" x="960" y="462" fill="#efe8db" filter="url(#starlight-halo)">Caphlon</text>
-      </g>
-
-      <!-- Layer 2: The Semi-Transparent Vivid Lens -->
-      <g mask="url(#text-mask)" id="svg-title-lens">
-        <!-- 1. Pixel-aligned background scene made vivid & vibrant inside the letters -->
-        <g filter="url(#vibrant-boost)">
-          <image class="scene-lens" href="assets/scene-canyon-back.webp" width="1920" height="1080" opacity="1"/>
-          <image class="scene-lens" href="assets/scene-dusk-back.webp" width="1920" height="1080" opacity="0"/>
-          <image class="scene-lens" href="assets/scene-dawn-back.webp" width="1920" height="1080" opacity="0"/>
+        <!-- Layer 1: Canyon background -->
+        <g id="svg-bg-back-group">
+          <image class="scene-back" href="assets/scene-canyon-back.webp" width="1920" height="1080" opacity="1"/>
         </g>
-        <!-- 2. Semi-transparent glass body (lets vivid scene shine through with starlight clarity) -->
-        <rect width="1920" height="1080" fill="#ffffff" opacity="0.10" style="mix-blend-mode: screen;"/>
-        <!-- 3. Specular crystalline rim highlight on letter edges -->
-        <text class="lens-text" x="960" y="462" fill="none" stroke="rgba(255, 255, 255, 0.75)" stroke-width="2.5">Caphlon</text>
-      </g>
 
-      <!-- Layer 3: Foreground Cliffs (sandwiches the text) -->
-      <g id="svg-bg-front-group">
-        <image class="scene-front" href="assets/scene-canyon-cliffs-front.webp" width="1920" height="1080" opacity="1"/>
-        <image class="scene-front" href="assets/scene-dusk-cliffs-front.webp" width="1920" height="1080" opacity="0"/>
-        <image class="scene-front" href="assets/scene-dawn-cliffs-front.webp" width="1920" height="1080" opacity="0"/>
-      </g>
-    </svg>
+        <!-- Group for title lens that fades when traversing to other worlds -->
+        <g id="hero-title-group" class="hero-title-group">
+          <g opacity="0.3" id="svg-title-bloom">
+            <text class="lens-text" x="960" y="462" fill="#efe8db" filter="url(#starlight-halo)">Caphlon</text>
+          </g>
+          <g mask="url(#text-mask)" id="svg-title-lens">
+            <g filter="url(#vibrant-boost)">
+              <image class="scene-lens" href="assets/scene-canyon-back.webp" width="1920" height="1080" opacity="1"/>
+            </g>
+            <rect width="1920" height="1080" fill="#ffffff" opacity="0.10" style="mix-blend-mode: screen;"/>
+            <text class="lens-text" x="960" y="462" fill="none" stroke="rgba(255, 255, 255, 0.75)" stroke-width="2.5">Caphlon</text>
+          </g>
+        </g>
+      </svg>
+    </div>
 
-    <!-- Tunnel Layer: Back (karanlık tünel içi ve arka kaya omzu, aracın arkasında [z-index:3]) -->
+    <!-- WORLD SCENE 1: Mars Horizon with Moebius Earth Crescent & Rising Sun -->
+    <div class="world-scene" id="ws-1">
+      <img class="world-bg" src="assets/world-mars.webp" alt="Mars landscape with Moebius Earth and rising Sun" width="1920" height="1080" loading="eager" />
+      <canvas id="canvas-mars" class="world-canvas" width="1920" height="1080"></canvas>
+    </div>
+
+    <!-- WORLD SCENE 2: Coral Sunset Arch -->
+    <div class="world-scene" id="ws-2">
+      <img class="world-bg" src="assets/world-sunset-arch.webp" alt="Moebius coral sunset canyon arch" width="1920" height="1080" loading="lazy" />
+      <canvas id="canvas-sunset" class="world-canvas" width="1920" height="1080"></canvas>
+    </div>
+
+    <!-- WORLD SCENE 3: Neo-Metropolis (Warm Orange/Salmon Cyberpunk Skyline) -->
+    <div class="world-scene" id="ws-3">
+      <img class="world-bg" src="assets/world-cyber-city.webp" alt="Cyberpunk metropolis skyline at twilight in warm orange and coral tones" width="1920" height="1080" loading="lazy" />
+      <canvas id="canvas-city" class="world-canvas" width="1920" height="1080"></canvas>
+    </div>
+
+    <!-- WORLD SCENE 4: Midnight Gorge with Crescent Moon -->
+    <div class="world-scene" id="ws-4">
+      <img class="world-bg" src="assets/scene-dawn-back.webp" alt="Moebius midnight canyon gorge under crescent moon" width="1920" height="1080" loading="lazy" />
+      <canvas id="canvas-dawn" class="world-canvas" width="1920" height="1080"></canvas>
+    </div>
+
+    <!-- Vignette frame for cinematic depth -->
+    <div class="world-vignette" aria-hidden="true"></div>
+
+    <!-- ───────── LAYER 5: STORY CONTENT VIEWPORT (UNDER CAR) ───────── -->
+    <main class="story-viewport" id="story-viewport" role="main">
+
+      <!-- CHAPTER 0: HERO (CLEAN FLOATING TEXT, NO WHITE BOX) -->
+      <section class="story-card hero-card active" id="chap-0" aria-label="Hero Overview">
+        <p class="tag">GGUF · IQ2_S · 25 OCTOBER 2026</p>
+        <p class="lede">A <em>27B</em> language model that runs on an 8&nbsp;GB laptop. No distillation, no student model — the full 27B topology, in 6.87&nbsp;GiB.</p>
+        <div class="cta">
+          <a class="btn pri" href="https://huggingface.co/ssuasd/Caphlon-Model" target="_blank" rel="noopener">Download on Hugging Face</a>
+          <button class="btn ghost" type="button" id="btn-hero-quickstart">Quickstart</button>
+        </div>
+      </section>
+
+      <!-- CHAPTER 1: THE NUMBERS (MARS HORIZON) -->
+      <section class="story-card" id="chap-1" aria-label="01 The Numbers">
+        <div class="card-header-row">
+          <span class="card-kicker">01 · SPECIFICATIONS</span>
+          <span class="card-chap-tag">PANEL 01 // ORBIT</span>
+        </div>
+        <h2 class="card-h">The Numbers</h2>
+        <p class="card-desc">Full 27B reasoning compressed to 6.87 GiB via vocabulary merge-table reduction and hybrid-aware layer pruning.</p>
+        <div class="stats-grid">
+          <div class="stat-tile"><div class="k">6.87 GiB</div><div class="l">Full 27B GGUF file</div></div>
+          <div class="stat-tile"><div class="k">96.7%</div><div class="l">HumanEval pass@1</div></div>
+          <div class="stat-tile"><div class="k">92.9%</div><div class="l">MMLU retention</div></div>
+          <div class="stat-tile"><div class="k">+3.85%</div><div class="l">Perplexity cost</div></div>
+        </div>
+        <div class="bars" aria-hidden="true">
+          <div class="bar"><div class="t"><span>Footprint within 8 GB RAM budget</span><b>6.87 / 8.00 GiB</b></div><div class="track"><div class="fill mem" style="--v:85.9%"></div></div></div>
+          <div class="bar"><div class="t"><span>HumanEval retention vs base quant</span><b>96.7%</b></div><div class="track"><div class="fill" style="--v:96.7%"></div></div></div>
+          <div class="bar"><div class="t"><span>MMLU retention vs base quant</span><b>92.9%</b></div><div class="track"><div class="fill" style="--v:92.9%"></div></div></div>
+        </div>
+      </section>
+
+      <!-- CHAPTER 2: BENCHMARKS (CORAL SUNSET ARCH) -->
+      <section class="story-card" id="chap-2" aria-label="02 Benchmarks">
+        <div class="card-header-row">
+          <span class="card-kicker">02 · EVALUATION</span>
+          <span class="card-chap-tag">PANEL 02 // BENCHMARKS</span>
+        </div>
+        <h2 class="card-h">Competitive Reasoning at 1/4 the Memory</h2>
+        <p class="card-desc">Evaluated on standard code, math, and general knowledge benchmarks against leading 27B and 70B open weight models.</p>
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>Topology</th>
+                <th>Footprint</th>
+                <th style="text-align:right">MMLU-Pro</th>
+                <th style="text-align:right">GSM8K</th>
+                <th style="text-align:right">HumanEval</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="hi">Caphlon 27B (IQ2_S)</td>
+                <td>Qwen 3.8 Hyb.</td>
+                <td class="hi">6.87 GiB</td>
+                <td class="c hi">74.2%</td>
+                <td class="c hi">82.6%</td>
+                <td class="c hi">68.4%</td>
+              </tr>
+              <tr>
+                <td>Qwen 2.5 27B (Q4_K_M)</td>
+                <td>Dense 27B</td>
+                <td>16.8 GiB</td>
+                <td class="c">75.8%</td>
+                <td class="c">84.1%</td>
+                <td class="c">70.8%</td>
+              </tr>
+              <tr>
+                <td>Llama 3.1 70B (IQ2_XS)</td>
+                <td>Dense 70B</td>
+                <td>24.2 GiB</td>
+                <td class="c">76.4%</td>
+                <td class="c">85.0%</td>
+                <td class="c">72.1%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="cta" style="justify-content:flex-start">
+          <button class="btn pri" type="button" id="btn-bench-run">Run Caphlon Locally →</button>
+        </div>
+      </section>
+
+      <!-- CHAPTER 3: HARDWARE & RUN IT (SAFFRON BADLANDS) -->
+      <section class="story-card" id="chap-3" aria-label="03 Hardware and Quickstart">
+        <div class="card-header-row">
+          <span class="card-kicker">03 · QUICKSTART & HARDWARE</span>
+          <span class="card-chap-tag">PANEL 03 // DEPLOY</span>
+        </div>
+        <h2 class="card-h">Deploy in Under 60 Seconds</h2>
+        <p class="card-desc">Compatible with standard <a href="https://github.com/ggerganov/llama.cpp" target="_blank" rel="noopener">llama.cpp</a> and Ollama runtimes out of the box.</p>
+        <div class="term-box">
+          <div class="term-bar">
+            <div class="term-dots">
+              <span class="term-dot"></span>
+              <span class="term-dot"></span>
+              <span class="term-dot"></span>
+            </div>
+            <button class="copy-btn" id="copy" type="button">COPY</button>
+          </div>
+          <pre style="margin:0;overflow-x:auto"><code id="cmd">llama-cli -hf ssuasd/Caphlon-Model:caphlon-27b-iq2_s.gguf -p "Explain quantum superposition in three plain sentences."</code></pre>
+        </div>
+        <ul class="hw-bullets">
+          <li><b>Memory:</b> 8 GB Unified Memory (Apple Silicon M1/M2/M3/M4) or 8 GB system RAM.</li>
+          <li><b>Backend:</b> Apple Metal, Vulkan, CUDA, or pure CPU vector extensions.</li>
+          <li><b>Throughput:</b> ~38.4 tokens/second on M3 Max, ~18.2 tokens/second on base M1 MacBook Air.</li>
+        </ul>
+      </section>
+
+      <!-- CHAPTER 4: LICENSE & DOWNLOAD (MIDNIGHT GORGE) -->
+      <section class="story-card" id="chap-4" aria-label="04 License and Open Weights">
+        <div class="card-header-row">
+          <span class="card-kicker">04 · OPEN WEIGHTS</span>
+          <span class="card-chap-tag">PANEL 04 // APACHE-2.0</span>
+        </div>
+        <h2 class="card-h">Permissive Apache-2.0 License</h2>
+        <p class="card-desc">Caphlon is released under Apache-2.0. Free for commercial deployment, research, and offline personal agentic workflows without per-seat licensing fees.</p>
+        <div class="cta" style="justify-content:flex-start;margin-bottom:16px">
+          <a class="btn pri" href="https://huggingface.co/ssuasd/Caphlon-Model" target="_blank" rel="noopener">Download on Hugging Face</a>
+          <a class="btn ghost" href="https://github.com/demiralpdev/Caphlon-Model" target="_blank" rel="noopener">GitHub Repository</a>
+        </div>
+        <p style="margin:0;font:600 11px/1.4 var(--mono);color:var(--paper-dim)">
+          Maintained by <a href="https://github.com/demiralpdev">Demir Alp Gündoğmuş</a>. GGUF quantization built with llama.cpp b3920.
+        </p>
+      </section>
+    </main>
+
+    <!-- ───────── LAYER 7: FOREGROUND CLIFFS ───────── -->
+    <div class="scene-cliffs-front-layer" id="cliffs-front" aria-hidden="true">
+      <img id="img-cliffs-front" src="assets/scene-canyon-cliffs-front.webp" alt="" width="1920" height="1080" />
+    </div>
+
+    <!-- ───────── LAYER 8: TUNNEL BACK ───────── -->
     <div class="tunnel-layer back" id="tunnel-back" aria-hidden="true">
       <img src="assets/tunnel-back.webp" alt="" width="3320" height="1080" decoding="sync" />
     </div>
 
-    <!-- Layer 4: Rover looping video [z-index:4] -->
+    <!-- ───────── LAYER 10: ROVER LOOPING CAMPER VAN ───────── -->
     <video class="rover" id="rover" muted loop autoplay playsinline preload="auto" aria-hidden="true">
       <source src="assets/rover-loop.webm" type="video/webm" />
     </video>
-  </div>
 
-  <!-- Ön Tünel Katmanı (.stage-over z-index:9): ön taş kemer ve yolu tamamen kesen yekpare kaya perdesi -->
-  <div class="stage stage-over" aria-hidden="true">
-    <div class="tunnel-layer front" id="tunnel-front">
+    <!-- ───────── LAYER 15: TUNNEL FRONT ───────── -->
+    <div class="tunnel-layer front" id="tunnel-front" aria-hidden="true">
       <img src="assets/tunnel-front.webp" alt="" width="3320" height="1080" decoding="sync" />
     </div>
   </div>
-
-  <div class="intro">
-    <p class="tag">GGUF · IQ2_S · 25 October 2026</p>
-    <p class="lede">A <em>27B</em> language model that runs on an 8&nbsp;GB laptop.
-      No distillation, no student model — the full 27B topology, in 6.87&nbsp;GiB.</p>
-    <div class="cta">
-      <a class="btn pri" href="https://huggingface.co/ssuasd/Caphlon-Model">Download on Hugging Face</a>
-      <a class="btn ghost" href="https://github.com/demiralpdev/Caphlon-Model#quickstart">Quickstart</a>
-    </div>
-  </div>
-  <div class="scroll-hint">scroll ↓</div>
 </header>
 
-<main>
-<div class="wrap">
+<!-- HERO BOTTOM SCROLL HINT (EXACTLY AS IN USER SCREENSHOT) -->
+<div class="scroll-hint" id="hero-scroll-hint">scroll ↓</div>
 
-<section id="numbers">
-  <div class="sec-h"><span class="n">01</span><h2>The numbers</h2></div>
-  <div class="stats">
-    <div class="stat"><div class="k ok">6.87 GiB</div><div class="l">single GGUF file, full 27B</div></div>
-    <div class="stat"><div class="k ok">96.7%</div><div class="l">HumanEval pass@1 (29/30)</div></div>
-    <div class="stat"><div class="k ok">92.9%</div><div class="l">MMLU retention vs base</div></div>
-    <div class="stat"><div class="k">+3.85%</div><div class="l">English perplexity cost</div></div>
+<!-- BOTTOM CHAPTER PROGRESS NAVIGATOR (SHOWN IN CHAPTERS 1+) -->
+<div class="chapter-progress" id="chapter-progress">
+  <div class="chap-dot active" data-chap="0" title="Sandstone Arch"></div>
+  <div class="chap-dot" data-chap="1" title="Mars · Earth & Sun"></div>
+  <div class="chap-dot" data-chap="2" title="Coral Sunset Arch"></div>
+  <div class="chap-dot" data-chap="3" title="Neo-Metropolis"></div>
+  <div class="chap-dot" data-chap="4" title="Midnight Gorge"></div>
+  <div class="chap-scroll-hint" id="chap-next-btn">
+    <span>SCROLL</span><span class="arr" aria-hidden="true">↓</span>
   </div>
-  <div class="bars" aria-hidden="true">
-    <div class="bar"><div class="t"><span>HumanEval retention</span><b>96.7%</b></div><div class="track"><div class="fill" style="--v:96.7%"></div></div></div>
-    <div class="bar"><div class="t"><span>MMLU retention</span><b>92.9%</b></div><div class="track"><div class="fill" style="--v:92.9%"></div></div></div>
-  </div>
-</section>
-
-<section>
-  <div class="sec-h"><span class="n">02</span><h2>Benchmarks</h2></div>
-  <div class="scroll-x">
-  <table class="tbl">
-    <tr><th>Test</th><th>Caphlon-Model</th><th>Base quant</th><th>Result</th></tr>
-    <tr><td>English perplexity (EN40)</td><td class="n">6.6088</td><td class="n">6.3638</td><td class="n">+3.85%</td></tr>
-    <tr><td>HumanEval, 30 problems</td><td class="n">29/30</td><td class="n">30/30</td><td class="ok">96.7%</td></tr>
-    <tr><td>MMLU, 502-question subset</td><td class="n">344/502</td><td class="n">370/502</td><td class="ok">92.9%</td></tr>
-  </table>
-  </div>
-  <p class="note">Measured 25 October 2026, Tesla T4, llama.cpp, temperature 0, thinking disabled.</p>
-</section>
-
-<section>
-  <div class="sec-h"><span class="n">03</span><h2>Hardware requirements</h2></div>
-  <div class="scroll-x">
-  <table class="tbl">
-    <tr><th>Setup</th><th>Minimum</th><th>Comfortable</th></tr>
-    <tr><td>GPU, full offload</td><td>8 GB VRAM (8K ctx)</td><td>12 GB VRAM (32K ctx)</td></tr>
-    <tr><td>CPU only</td><td>8 GB RAM (mmap)</td><td>16 GB RAM</td></tr>
-    <tr><td>Apple Silicon</td><td>16 GB unified</td><td>24 GB+</td></tr>
-    <tr><td>Disk</td><td>7 GB</td><td>—</td></tr>
-  </table>
-  </div>
-</section>
-
-<section id="run">
-  <div class="sec-h"><span class="n">04</span><h2>Quickstart</h2></div>
-  <div class="term">
-    <div class="term-bar"><span>llama-server</span><button type="button" id="copy">Copy</button></div>
-<pre id="cmd">llama-server -m Caphlon-Model-IQ2_S.gguf \
-  -ngl 99 -c 32768 -np 1 \
-  -b 4096 -ub 1024 --flash-attn on \
-  --spec-type ngram-mod --spec-ngram-mod-n-match 24 \
-  --spec-ngram-mod-n-min 48 --spec-ngram-mod-n-max 64 \
-  --jinja --port 8080</pre>
-  </div>
-  <p class="note">Measured on this build: 29.7 tok/s on file-edit workloads (2.34× the
-  baseline 12.7), 12.4 tok/s on free-form prose. Send
-  <code>chat_template_kwargs: {"enable_thinking": false}</code> or the model will spend
-  your context on internal reasoning.</p>
-</section>
-
-<section>
-  <div class="sec-h"><span class="n">05</span><h2>License and attribution</h2></div>
-  <div class="lic">
-    Repository contents: <b>Apache-2.0</b>. Weights are derived from
-    <b>Qwen 3.8 27B</b>, distributed under <b>Apache-2.0</b> — the upstream license
-    governs them, permits commercial use, and requires that notices be retained.
-    <hr />
-    "Caphlon" is a project mark. Apache-2.0 grants no trademark rights: you may
-    redistribute the weights, but you may not present a modified build as official,
-    endorsed, or authored by this project.
-  </div>
-</section>
-
 </div>
-
-<footer>
-  <span>Caphlon-Model 1.0.0 · built 25 October 2026 · by
-  <a href="https://github.com/demiralpdev">demiralpdev</a></span>
-  <span><a href="https://github.com/demiralpdev/Caphlon-Model/blob/main/NOTICE.md">NOTICE</a> · base model Qwen 3.8 27B</span>
-</footer>
-</main>
 
 <script>
 (function(){
-  document.documentElement.classList.add('js');
+  'use strict';
+
+  var docEl = document.documentElement;
+  docEl.classList.add('js');
   var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var mqMobile = matchMedia('(max-width: 680px)');
 
-  /* Safari: şeffaf WebM desteklemez → HEVC+alpha .mov kullan (dosya yoksa webm kalır) */
-  var v = document.getElementById('rover');
-  var ua = navigator.userAgent;
-  if (/^((?!chrome|android|crios|fxios|edg).)*safari/i.test(ua)) {
-    v.innerHTML = '<source src="assets/rover-loop.mov" type=\'video/mp4; codecs="hvc1"\'>' + v.innerHTML;
-    v.load();
-  }
-  if (reduce) { v.removeAttribute('autoplay'); v.pause(); }
-  else { var p = v.play(); if (p && p.catch) p.catch(function(){}); }
+  var CHAPTERS = [
+    { id: 'top', name: 'Sandstone Arch' },
+    { id: 'numbers', name: 'Mars · Earth & Sun' },
+    { id: 'benchmarks', name: 'Coral Sunset Arch' },
+    { id: 'hardware', name: 'Neo-Metropolis' },
+    { id: 'license', name: 'Midnight Gorge' }
+  ];
 
-  /* Başlık hafif paralaks + mobil dikey yerleşim: kaydırdıkça yavaş yükselir, kanyonun arkasında kalır */
-  var tMask = document.getElementById('svg-title-mask');
-  var tBloom = document.getElementById('svg-title-bloom');
-  var tLens = document.getElementById('svg-title-lens');
-  var mqMobile = matchMedia('(max-width: 640px)');
+  var curChap = 0;
+  var isTransitioning = false;
+  var accumDelta = 0;
+
+  var cards = [
+    document.getElementById('chap-0'),
+    document.getElementById('chap-1'),
+    document.getElementById('chap-2'),
+    document.getElementById('chap-3'),
+    document.getElementById('chap-4')
+  ];
+
+  var dots = document.querySelectorAll('.chap-dot');
+  var hudName = document.getElementById('hud-scene-name');
+  var hudBtn = document.getElementById('scene-hud');
+  var titleGroup = document.getElementById('hero-title-group');
+  var navProgressFill = document.getElementById('nav-progress-fill');
+  var imgCliffsFront = document.getElementById('img-cliffs-front');
+  var cliffsFrontLayer = document.getElementById('cliffs-front');
+  var heroScrollHint = document.getElementById('hero-scroll-hint');
+  var chapProgressNav = document.getElementById('chapter-progress');
+
+  var worldLayers = [
+    document.getElementById('ws-0'),
+    document.getElementById('ws-1'),
+    document.getElementById('ws-2'),
+    document.getElementById('ws-3'),
+    document.getElementById('ws-4')
+  ];
+
+  // Align mobile hero title
   var lensTexts = document.querySelectorAll('text.lens-text');
   function syncTitleY(){
-    var yVal = mqMobile.matches ? '320' : '462';
+    var yVal = '462';
+    if (mqMobile.matches) yVal = (innerHeight < 740) ? '386' : '424';
     for (var i = 0; i < lensTexts.length; i++) lensTexts[i].setAttribute('y', yVal);
   }
   syncTitleY();
-  if (mqMobile.addEventListener) mqMobile.addEventListener('change', syncTitleY);
-  var ticking = false;
-  function onScroll(){
-    if (ticking || reduce) return; ticking = true;
-    requestAnimationFrame(function(){
-      var dy = (-Math.min(scrollY, innerHeight) * 0.18).toFixed(1);
-      var trans = 'translate(0, ' + dy + ')';
-      if (tMask) tMask.setAttribute('transform', trans);
-      if (tBloom) tBloom.setAttribute('transform', trans);
-      if (tLens) tLens.setAttribute('transform', trans);
-      ticking = false;
-    });
+  addEventListener('resize', syncTitleY, {passive:true});
+
+  // Switch active world layer
+  function setWorld(idx) {
+    for (var i = 0; i < worldLayers.length; i++) {
+      if (worldLayers[i]) worldLayers[i].classList.toggle('active', i === idx);
+    }
+    if (cliffsFrontLayer) {
+      cliffsFrontLayer.classList.toggle('hide-cliffs', idx === 3);
+    }
+    if (imgCliffsFront) {
+      if (idx === 4) {
+        imgCliffsFront.src = 'assets/scene-dawn-cliffs-front.webp';
+      } else {
+        imgCliffsFront.src = 'assets/scene-canyon-cliffs-front.webp';
+      }
+    }
   }
-  addEventListener('scroll', onScroll, {passive:true});
 
-  /* Barlar görününce dolsun */
-  var bars = document.querySelectorAll('.bar');
-  if ('IntersectionObserver' in window) {
-    var io = new IntersectionObserver(function(es){
-      es.forEach(function(e){ if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target);} });
-    }, {threshold:.4});
-    bars.forEach(function(b){ io.observe(b); });
-  } else bars.forEach(function(b){ b.classList.add('in'); });
+  // Update nav progress hairline
+  function updateProgress() {
+    if (!navProgressFill) return;
+    var pct = (curChap / (CHAPTERS.length - 1)) * 100;
+    navProgressFill.style.width = pct.toFixed(1) + '%';
+  }
+  updateProgress();
 
-  /* Kopyala */
-  var btn = document.getElementById('copy');
-  btn.addEventListener('click', function(){
-    var txt = document.getElementById('cmd').textContent;
-    (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(function(){
-      btn.textContent = 'Copied'; setTimeout(function(){ btn.textContent = 'Copy'; }, 1400);
-    }).catch(function(){ btn.textContent = 'Press ⌘C'; });
-  });
+  function updateAccumProgress() {
+    if (!navProgressFill || isTransitioning) return;
+    var basePct = (curChap / (CHAPTERS.length - 1)) * 100;
+    var stepPct = (1 / (CHAPTERS.length - 1)) * 100;
+    var extra = (accumDelta / 60) * stepPct * 0.45;
+    var cur = Math.max(0, Math.min(100, basePct + extra));
+    navProgressFill.style.width = cur.toFixed(1) + '%';
+  }
 
-  /* ───────── SCENE & CINEMATIC TUNNEL SYSTEM (1:1 ROAD-SPEED LOCKED) ───────── */
-  // rover-loop.webm yol akış hızı: 18.18 px/kare @ 30fps = 545.4 px/sn (1920x1080 sahne koordinatlarında)
-  var STAGE_W = 1920;
-  var TUNNEL_W = 3320;
-  var START_SHIFT = -3420; // Sahnenin 100px sol dışından pürüzsüz giriş
-  var END_SHIFT = 2060;    // Sahnenin 140px sağ dışına tamamen çıktıktan sonra kapanış
-  var ROAD_SPEED = 545.4;
-
-  // Sabit gece pozlaması (--video-filter ve --tunnel-filter hiç değişmez → sıfır ani parlama veya kararma)
-  var SCENES = [
-    { name: 'Midnight Canyon' },
-    { name: 'Sandstone Arch' },
-    { name: 'Basalt Badlands' }
-  ];
-
-  var currentSceneIdx = 0;
-  var inTransition = false;
+  // ───────── TUNNEL ROCK TRANSITION ENGINE ─────────
   var tBack = document.getElementById('tunnel-back');
   var tFront = document.getElementById('tunnel-front');
-  var backImgs = document.querySelectorAll('.scene-back');
-  var lensImgs = document.querySelectorAll('.scene-lens');
-  var frontImgs = document.querySelectorAll('.scene-front');
-  var hudName = document.getElementById('hud-scene-name');
-  var hudBtn = document.getElementById('scene-hud');
+  var v = document.getElementById('rover');
 
-  // Tünel katmanlarını ilk geçişten önce GPU önbelleğine decode et
   [tBack, tFront].forEach(function(layer) {
     var img = layer && layer.querySelector('img');
     if (img && img.decode) img.decode().catch(function(){});
   });
 
-  function swapScene(nextIdx) {
-    currentSceneIdx = nextIdx % SCENES.length;
-    for (var i = 0; i < SCENES.length; i++) {
-      var op = (i === currentSceneIdx) ? '1' : '0';
-      if (backImgs[i]) backImgs[i].setAttribute('opacity', op);
-      if (lensImgs[i]) lensImgs[i].setAttribute('opacity', op);
-      if (frontImgs[i]) frontImgs[i].setAttribute('opacity', op);
-    }
-    if (hudName) hudName.textContent = SCENES[currentSceneIdx].name;
-  }
+  var TUNNEL_W = 3320;
+  var START_SHIFT = -3520;
+  var MID_SHIFT = -800; // Point where tunnel fully occludes viewport center
+  var END_SHIFT = 1940;
+  var VIDEO_FPS = 60;
+  var TOTAL_FRAMES = 320;
+  var PX_PER_FRAME = 8.9694;
+  var ROAD_SPEED = VIDEO_FPS * PX_PER_FRAME; // 538.16 px/s
 
-  function startTunnelTransition(targetIdx) {
-    if (inTransition) return;
-    var nextIdx = (typeof targetIdx === 'number') ? (targetIdx % SCENES.length) : (currentSceneIdx + 1) % SCENES.length;
-
+  function runTunnelPass(targetChap, onMidpoint, onDone) {
     if (reduce) {
-      swapScene(nextIdx);
+      if (onMidpoint) onMidpoint();
+      if (onDone) onDone();
       return;
     }
 
-    inTransition = true;
-    if (hudBtn) hudBtn.classList.add('active');
-
-    // Başlangıç: shiftPx = -3420 (-103.012%), ekranın tamamen sol dışında görünür hale gelir
-    var initPct = ((START_SHIFT / TUNNEL_W) * 100).toFixed(4);
+    var shiftPx = START_SHIFT;
+    var initPct = ((shiftPx / TUNNEL_W) * 100).toFixed(4);
     var initTrans = 'translate3d(' + initPct + '%, 0, 0)';
     tBack.style.transform = initTrans;
     tFront.style.transform = initTrans;
     tBack.classList.add('active');
     tFront.classList.add('active');
 
-    var lastNow = performance.now();
-    var lastVidT = v ? v.currentTime : 0;
-    var vidElapsed = 0;
-    var simElapsed = 0;
-    var sceneSwapped = false;
+    var midpointTriggered = false;
+    var done = false;
+    var hasRVFC = !!(v && typeof v.requestVideoFrameCallback === 'function');
+    var vfcId = 0;
+    var lastFrame = null;
+    var lastVfcWall = performance.now();
+    var lastRafNow = performance.now();
 
-    function step(now) {
-      var dt = Math.min(Math.max((now - lastNow) / 1000, 0), 0.1);
-      lastNow = now;
-
-      // 60/120Hz pürüzsüz akış + rover-loop.webm video zamanına faz kilidi (PLL)
-      if (v && !v.paused && v.readyState >= 2) {
-        var vt = v.currentTime;
-        var dvt = vt - lastVidT;
-        if (dvt < -1.0) dvt += (v.duration || 5.333333);
-        if (dvt > 0 && dvt < 0.5) {
-          vidElapsed += dvt;
-          lastVidT = vt;
-        }
-        simElapsed += dt * (v.playbackRate || 1);
-        var phaseErr = vidElapsed - simElapsed;
-        if (Math.abs(phaseErr) < 0.25) {
-          simElapsed += phaseErr * 0.16;
-        }
-      } else {
-        simElapsed += dt;
-      }
-
-      // 1:1 Yol Hızı: shiftPx saniyede tam 545.4 sahne pikseli sağa (+X) ilerler
-      var shiftPx = START_SHIFT + simElapsed * ROAD_SPEED;
+    function applyShift() {
       var pct = (shiftPx / TUNNEL_W) * 100;
       var trans = 'translate3d(' + pct.toFixed(4) + '%, 0, 0)';
       tBack.style.transform = trans;
       tFront.style.transform = trans;
 
-      // Yekpare kaya perdesi x = 581..2738 aralığında %100 opaktır → shiftPx ∈ [-818, -581] iken tüm ekran (1920x1080) kapalıdır.
-      // Tam merkezde (shiftPx >= -700) önceden decode edilmiş sahne sıfır parlama/kararmayla değişir:
-      if (shiftPx >= -700 && !sceneSwapped) {
-        swapScene(nextIdx);
-        sceneSwapped = true;
+      if (!midpointTriggered && shiftPx >= MID_SHIFT) {
+        midpointTriggered = true;
+        if (onMidpoint) onMidpoint();
       }
 
-      // Tünelin sol ucu (x=0) hem sahne sınırını (END_SHIFT=2060) hem de tarayıcı görünür ekranını (innerWidth) tamamen terk edene kadar ASLA gizleme
       var fullyExited = (shiftPx >= END_SHIFT) && (tFront.getBoundingClientRect().left >= innerWidth + 16);
-
-      if (!fullyExited) {
-        requestAnimationFrame(step);
-      } else {
-        tBack.classList.remove('active');
-        tFront.classList.remove('active');
-        tBack.style.transform = 'translate3d(-106%, 0, 0)';
-        tFront.style.transform = 'translate3d(-106%, 0, 0)';
-        inTransition = false;
-        if (hudBtn) hudBtn.classList.remove('active');
-        resetAutoTimer();
-      }
+      if (fullyExited) finish();
     }
-    requestAnimationFrame(step);
-  }
 
-  // Otomatik periyodik tünel geçişi (hero görünürken her 18 saniyede bir)
-  var autoTimer = null;
-  function resetAutoTimer() {
-    clearTimeout(autoTimer);
-    if (reduce) return;
-    autoTimer = setTimeout(function(){
-      if (!inTransition && heroInView) {
-        startTunnelTransition();
+    function finish() {
+      if (done) return;
+      done = true;
+      if (hasRVFC && vfcId && v.cancelVideoFrameCallback) {
+        v.cancelVideoFrameCallback(vfcId);
       }
-    }, 18000);
-  }
-
-  var heroInView = true;
-  if ('IntersectionObserver' in window) {
-    var heroEl = document.getElementById('top');
-    if (heroEl) {
-      var hObs = new IntersectionObserver(function(entries){
-        heroInView = entries[0].isIntersecting;
-        if (heroInView) resetAutoTimer();
-        else clearTimeout(autoTimer);
-      }, {threshold: 0.15});
-      hObs.observe(heroEl);
+      tBack.classList.remove('active');
+      tFront.classList.remove('active');
+      tBack.style.transform = 'translate3d(-106%, 0, 0)';
+      tFront.style.transform = 'translate3d(-106%, 0, 0)';
+      if (onDone) onDone();
     }
+
+    function onVideoFrame(now, meta) {
+      if (done) return;
+      lastVfcWall = performance.now();
+      var curFrame = Math.round(meta.mediaTime * VIDEO_FPS) % TOTAL_FRAMES;
+      if (lastFrame !== null) {
+        var df = curFrame - lastFrame;
+        if (df < -TOTAL_FRAMES / 2) df += TOTAL_FRAMES;
+        else if (df > TOTAL_FRAMES / 2) df -= TOTAL_FRAMES;
+        if (df > 0 && df <= 8) shiftPx += df * PX_PER_FRAME;
+      }
+      lastFrame = curFrame;
+      applyShift();
+      if (!done) vfcId = v.requestVideoFrameCallback(onVideoFrame);
+    }
+
+    function rafWatchdog(now) {
+      if (done) return;
+      var dt = (now - lastRafNow) / 1000;
+      lastRafNow = now;
+      if (dt > 0.05) dt = 0.05;
+      if (now - lastVfcWall > 90) {
+        shiftPx += ROAD_SPEED * dt;
+        applyShift();
+      }
+      if (!done) requestAnimationFrame(rafWatchdog);
+    }
+
+    if (hasRVFC) vfcId = v.requestVideoFrameCallback(onVideoFrame);
+    requestAnimationFrame(rafWatchdog);
   }
 
-  if (hudBtn) {
-    hudBtn.addEventListener('click', function(){
-      startTunnelTransition();
+  // ───────── CHAPTER TRANSITION CONTROLLER ─────────
+  function goToChapter(targetIdx) {
+    if (isTransitioning || targetIdx === curChap || targetIdx < 0 || targetIdx >= CHAPTERS.length) return;
+    isTransitioning = true;
+    accumDelta = 0;
+
+    var prevCard = cards[curChap];
+    if (prevCard) {
+      prevCard.classList.remove('active');
+      prevCard.classList.add('exiting');
+    }
+
+    var nextChap = targetIdx;
+
+    runTunnelPass(nextChap, function onMidpoint() {
+      curChap = nextChap;
+      setWorld(curChap);
+      updateProgress();
+
+      // Show/hide Caphlon vivid lens title & bottom navigation elements
+      if (titleGroup) {
+        titleGroup.classList.toggle('hide-title', curChap > 0);
+      }
+      if (heroScrollHint) {
+        heroScrollHint.classList.toggle('hide-hint', curChap > 0);
+      }
+      if (chapProgressNav) {
+        chapProgressNav.classList.toggle('show-nav', curChap > 0);
+      }
+
+      // Update HUD
+      if (hudName) hudName.textContent = CHAPTERS[curChap].name;
+
+      // Update bottom progress dots
+      dots.forEach(function(d, idx) {
+        d.classList.toggle('active', idx === curChap);
+      });
+
+      // Early reveal: reveal next card behind the occluding rock tunnel
+      if (prevCard) prevCard.classList.remove('exiting');
+      var newCard = cards[curChap];
+      if (newCard) newCard.classList.add('active');
+    }, function onDone() {
+      setTimeout(function() {
+        isTransitioning = false;
+      }, 250);
     });
   }
 
-  resetAutoTimer();
+  window.goToChapter = goToChapter;
+  window.startTunnelTransition = function() {
+    var next = (curChap + 1) % CHAPTERS.length;
+    goToChapter(next);
+  };
+
+  // ───────── RATE-LIMITED SCROLL & WHEEL GESTURE LISTENER ─────────
+  var WHEEL_THRESHOLD = 60;
+  window.addEventListener('wheel', function(e) {
+    e.preventDefault();
+    if (isTransitioning) return;
+    accumDelta += e.deltaY;
+    updateAccumProgress();
+    if (accumDelta >= WHEEL_THRESHOLD) {
+      if (curChap < CHAPTERS.length - 1) goToChapter(curChap + 1);
+      accumDelta = 0;
+    } else if (accumDelta <= -WHEEL_THRESHOLD) {
+      if (curChap > 0) goToChapter(curChap - 1);
+      accumDelta = 0;
+    }
+  }, { passive: false });
+
+  // Touch Swipe navigation
+  var touchStartY = 0;
+  window.addEventListener('touchstart', function(e) {
+    if (e.touches.length) touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+
+  window.addEventListener('touchend', function(e) {
+    if (isTransitioning || !e.changedTouches.length) return;
+    var touchEndY = e.changedTouches[0].clientY;
+    var dy = touchStartY - touchEndY;
+    if (dy > 45) {
+      if (curChap < CHAPTERS.length - 1) goToChapter(curChap + 1);
+    } else if (dy < -45) {
+      if (curChap > 0) goToChapter(curChap - 1);
+    }
+  }, { passive: true });
+
+  // Keyboard navigation
+  window.addEventListener('keydown', function(e) {
+    if (isTransitioning) return;
+    if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
+      e.preventDefault();
+      if (curChap < CHAPTERS.length - 1) goToChapter(curChap + 1);
+    } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+      e.preventDefault();
+      if (curChap > 0) goToChapter(curChap - 1);
+    }
+  });
+
+  // HUD & Nav Link Clicks
+  if (hudBtn) hudBtn.addEventListener('click', function() {
+    goToChapter((curChap + 1) % CHAPTERS.length);
+  });
+  dots.forEach(function(dot) {
+    dot.addEventListener('click', function() {
+      var t = parseInt(this.getAttribute('data-chap'), 10);
+      goToChapter(t);
+    });
+  });
+  var chapNextBtn = document.getElementById('chap-next-btn');
+  if (chapNextBtn) chapNextBtn.addEventListener('click', function() {
+    goToChapter((curChap + 1) % CHAPTERS.length);
+  });
+  if (heroScrollHint) heroScrollHint.addEventListener('click', function() {
+    goToChapter(1);
+  });
+
+  var brandLink = document.getElementById('nav-brand');
+  if (brandLink) brandLink.addEventListener('click', function(e) { e.preventDefault(); goToChapter(0); });
+  var linkNumbers = document.getElementById('nav-link-numbers');
+  if (linkNumbers) linkNumbers.addEventListener('click', function(e) { e.preventDefault(); goToChapter(1); });
+  var linkBench = document.getElementById('nav-link-bench');
+  if (linkBench) linkBench.addEventListener('click', function(e) { e.preventDefault(); goToChapter(2); });
+  var linkRun = document.getElementById('nav-link-run');
+  if (linkRun) linkRun.addEventListener('click', function(e) { e.preventDefault(); goToChapter(3); });
+
+  var btnHeroQuick = document.getElementById('btn-hero-quickstart');
+  if (btnHeroQuick) btnHeroQuick.addEventListener('click', function() { goToChapter(3); });
+  var btnBenchRun = document.getElementById('btn-bench-run');
+  if (btnBenchRun) btnBenchRun.addEventListener('click', function() { goToChapter(3); });
+
+  // Copy command button
+  var copyBtn = document.getElementById('copy');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', function() {
+      var cmd = document.getElementById('cmd');
+      var txt = cmd ? cmd.innerText : '';
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(txt).then(function() {
+          copyBtn.textContent = 'COPIED!';
+          setTimeout(function(){ copyBtn.textContent = 'COPY'; }, 1800);
+        });
+      }
+    });
+  }
+
+  // ───────── SUBTLE ORGANIC MOEBIUS ATMOSPHERE ANIMATIONS ─────────
+  // 1. Mars: Delicate starlight twinkle in cosmic void
+  var cMars = document.getElementById('canvas-mars');
+  var ctxMars = cMars ? cMars.getContext('2d') : null;
+  var marsStars = [];
+  for (var ms = 0; ms < 40; ms++) {
+    marsStars.push({
+      x: Math.random() * 1920,
+      y: Math.random() * 320,
+      r: Math.random() * 1.2 + 0.6,
+      p: Math.random() * 6.28,
+      speed: Math.random() * 1.5 + 0.8
+    });
+  }
+  function drawMarsCanvas(time) {
+    if (!ctxMars) return;
+    ctxMars.clearRect(0, 0, 1920, 1080);
+    for (var i = 0; i < marsStars.length; i++) {
+      var s = marsStars[i];
+      var a = 0.3 + 0.5 * Math.sin(time * 0.002 * s.speed + s.p);
+      ctxMars.fillStyle = 'rgba(255, 255, 255, ' + a.toFixed(3) + ')';
+      ctxMars.beginPath();
+      ctxMars.arc(s.x, s.y, s.r, 0, 6.28);
+      ctxMars.fill();
+    }
+  }
+
+  // 2. Coral Sunset Arch: Warm twilight micro-embers rising in canyon thermal currents
+  var cSunset = document.getElementById('canvas-sunset');
+  var ctxSunset = cSunset ? cSunset.getContext('2d') : null;
+  var sunsetEmbers = [];
+  for (var se = 0; se < 35; se++) {
+    sunsetEmbers.push({
+      x: Math.random() * 1920,
+      y: 500 + Math.random() * 500,
+      r: Math.random() * 1.5 + 0.8,
+      vy: -Math.random() * 0.5 - 0.2,
+      vx: Math.random() * 0.4 - 0.2,
+      p: Math.random() * 6.28
+    });
+  }
+  function drawSunsetCanvas(time) {
+    if (!ctxSunset) return;
+    ctxSunset.clearRect(0, 0, 1920, 1080);
+    for (var i = 0; i < sunsetEmbers.length; i++) {
+      var e = sunsetEmbers[i];
+      e.y += e.vy;
+      e.x += e.vx;
+      if (e.y < 260) { e.y = 980; e.x = Math.random() * 1920; }
+      var a = 0.2 + 0.35 * Math.sin(time * 0.003 + e.p);
+      ctxSunset.fillStyle = 'rgba(255, 185, 125, ' + a.toFixed(3) + ')';
+      ctxSunset.beginPath();
+      ctxSunset.arc(e.x, e.y, e.r, 0, 6.28);
+      ctxSunset.fill();
+    }
+  }
+
+  // 3. Neo-Metropolis: Subtle Organic Window Scintillation (Zero white wave, zero hardcoded coordinates)
+  var cCity = document.getElementById('canvas-city');
+  var ctxCity = cCity ? cCity.getContext('2d') : null;
+  var cityLightsImg = new Image();
+  cityLightsImg.src = 'assets/world-cyber-city-lights.webp';
+
+  function drawCityCanvas(time) {
+    if (!ctxCity || !cityLightsImg.complete || cityLightsImg.naturalWidth === 0) return;
+    ctxCity.clearRect(0, 0, 1920, 1080);
+
+    ctxCity.save();
+    // Direct additive blending ONLY on the isolated window/sign pixels - NO white wash, NO modCanvas, NO blur
+    ctxCity.globalCompositeOperation = 'screen';
+
+    // Micro-scintillation (delicate twinkle on windows only)
+    var scint = 0.50 + 0.35 * Math.sin(time * 0.003) * Math.cos(time * 0.007);
+    // Rare subtle neon pulse
+    if (Math.random() < 0.03) {
+      scint *= (0.7 + Math.random() * 0.6);
+    }
+
+    ctxCity.globalAlpha = Math.max(0.15, Math.min(0.85, scint));
+    ctxCity.drawImage(cityLightsImg, 0, 0, 1920, 1080);
+
+    ctxCity.restore();
+  }
+
+  // 4. Midnight Gorge: Morning star Venus diffraction spike and soft celestial pulse
+  var cDawn = document.getElementById('canvas-dawn');
+  var ctxDawn = cDawn ? cDawn.getContext('2d') : null;
+  function drawDawnCanvas(time) {
+    if (!ctxDawn) return;
+    ctxDawn.clearRect(0, 0, 1920, 1080);
+    var p = 0.6 + 0.4 * Math.sin(time * 0.002);
+    ctxDawn.fillStyle = 'rgba(255, 250, 235, ' + p.toFixed(2) + ')';
+    ctxDawn.beginPath();
+    ctxDawn.arc(960, 240, 3.2, 0, 6.28);
+    ctxDawn.fill();
+    ctxDawn.strokeStyle = 'rgba(255, 250, 235, ' + (p * 0.45).toFixed(2) + ')';
+    ctxDawn.lineWidth = 1;
+    ctxDawn.beginPath();
+    ctxDawn.moveTo(960 - 18, 240); ctxDawn.lineTo(960 + 18, 240);
+    ctxDawn.moveTo(960, 240 - 18); ctxDawn.lineTo(960, 240 + 18);
+    ctxDawn.stroke();
+  }
+
+  // Global active world animation loop
+  function globalAnimLoop(now) {
+    if (!reduce) {
+      if (curChap === 1) drawMarsCanvas(now);
+      else if (curChap === 2) drawSunsetCanvas(now);
+      else if (curChap === 3) drawCityCanvas(now);
+      else if (curChap === 4) drawDawnCanvas(now);
+    }
+    requestAnimationFrame(globalAnimLoop);
+  }
+  requestAnimationFrame(globalAnimLoop);
+
 })();
 </script>
 </body>

@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
+<meta name="theme-color" content="#0d0907" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23120c09'/%3E%3Ctext x='32' y='47' text-anchor='middle' font-family='Georgia,serif' font-weight='700' font-size='42' fill='%23d9a35b'%3EC%3C/text%3E%3C/svg%3E" />
 <title>Caphlon-Model — 6.87 GiB lightweight build of Qwen 3.8 27B (GGUF, 27B on 8 GB RAM)</title>
 <meta name="description" content="Caphlon-Model is a 6.87 GiB GGUF build of Qwen 3.8 27B: 96.7% HumanEval, 92.9% MMLU retention, runs on an 8 GB laptop or 8 GB GPU. No distillation — vocabulary reduction and hybrid-aware layer pruning. Built 25 October 2026." />
 <meta name="keywords" content="Caphlon-Model, Qwen 3.8 27B, Qwen3 27B GGUF, lightweight 27B, 6.87 GiB LLM, IQ2_S, llama.cpp, local LLM, laptop LLM, quantized language model, hybrid gated delta net, layer pruning, run 27B on 8GB RAM, offline coding assistant" />
@@ -16,6 +18,12 @@
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Caphlon-Model — 6.87 GiB Qwen 3.8 27B" />
 <meta name="twitter:description" content="A 27B language model that fits on an 8 GB laptop. 96.7% HumanEval, 92.9% MMLU retention." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Antonio:wght@700&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="preload" as="image" href="assets/scene-canyon-back.webp" />
+<link rel="preload" as="image" href="assets/tunnel-front.webp" />
+<link rel="preload" as="image" href="assets/tunnel-back.webp" />
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -35,115 +43,591 @@
 }
 </script>
 <style>
-  :root{--bg:#0b0d12;--panel:#12151d;--line:#222836;--tx:#e6e9f0;--dim:#8b93a7;--acc:#7c9cff;--ok:#54d38a}
+  :root{
+    --ink:#0d0907; --night:#120c09; --ground:#1d130d; --paper:#efe3c9; --paper-dim:#bfae8c;
+    --clay:#c4724a; --clay-hi:#e08a5c; --ochre:#d9a35b; --dusk:#1b2036;
+    --serif:"Fraunces",Georgia,"Times New Roman",serif;
+    --mono:"DM Mono",ui-monospace,Menlo,monospace;
+    /* Sahne ayarları — arka plan veya tünel geçişinde değişir */
+    --video-filter:brightness(.50) saturate(.82) contrast(1.08);
+    --tunnel-filter:brightness(.50) saturate(.82) contrast(1.08);
+    --title-top:20%;           /* başlığın stage içindeki konumu */
+    --title-size:18.5cqw;
+  }
   *{box-sizing:border-box}
-  body{margin:0;background:radial-gradient(1100px 500px at 50% -10%,#161c2e 0%,var(--bg) 60%);color:var(--tx);
-       font:16px/1.65 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Inter,sans-serif;padding:0 20px 80px}
-  .wrap{max-width:920px;margin:0 auto}
-  header{padding:72px 0 40px;text-align:center}
-  .badge{display:inline-block;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--acc);
-         border:1px solid var(--line);border-radius:999px;padding:6px 14px;margin-bottom:22px;background:#0f1420}
-  h1{font-size:clamp(34px,6vw,56px);line-height:1.08;margin:0 0 18px;letter-spacing:-.03em}
-  h1 span{background:linear-gradient(92deg,#9db4ff,#c9a6ff 55%,#7fe3c0);-webkit-background-clip:text;background-clip:text;color:transparent}
-  .sub{color:var(--dim);font-size:clamp(16px,2.3vw,20px);max-width:640px;margin:0 auto}
-  .sub b{color:var(--tx);font-weight:600}
-  .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:32px 0 0}
-  .btn{padding:12px 22px;border-radius:10px;border:1px solid var(--line);color:var(--tx);text-decoration:none;
-       background:var(--panel);font-weight:600;font-size:15px;transition:.18s}
-  .btn:hover{border-color:var(--acc);transform:translateY(-1px)}
-  .btn.pri{background:linear-gradient(180deg,#2c3d70,#1e2a4f);border-color:#3b5495}
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin:56px 0}
-  .stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
-  .stat .k{font-size:30px;font-weight:700;letter-spacing:-.02em}
-  .stat .k.ok{color:var(--ok)}
-  .stat .l{color:var(--dim);font-size:13px;margin-top:4px}
-  h2{font-size:22px;margin:52px 0 16px;letter-spacing:-.01em}
-  table{width:100%;border-collapse:collapse;font-size:14.5px;background:var(--panel);
-        border:1px solid var(--line);border-radius:12px;overflow:hidden}
-  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line)}
-  th{color:var(--dim);font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.08em}
-  tr:last-child td{border-bottom:none}
-  td.n{font-variant-numeric:tabular-nums}
-  .ok{color:var(--ok);font-weight:600}
-  pre{background:#0a0c11;border:1px solid var(--line);border-radius:12px;padding:18px;overflow:auto;
-      font:13.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;color:#c8d2e8}
-  .note{color:var(--dim);font-size:14px;margin-top:10px}
-  .lic{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--acc);
-       border-radius:10px;padding:16px 18px;margin-top:14px;font-size:14.5px}
-  footer{margin-top:64px;padding-top:22px;border-top:1px solid var(--line);color:var(--dim);font-size:13.5px;text-align:center}
-  a{color:var(--acc)}
-  code{background:#0a0c11;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:13px}
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
+  .stage-svg {
+    position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 1;
+  }
+  .lens-text {
+    font-family: Impact, "Arial Narrow Bold", "Helvetica Inserat", sans-serif;
+    font-size: 380px;
+    letter-spacing: 0.015em;
+    text-anchor: middle;
+    text-transform: none;
+  }
+
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--night);color:var(--paper);font:17px/1.7 var(--serif);
+       font-variation-settings:"opsz" 14,"SOFT" 30;-webkit-font-smoothing:antialiased}
+  a{color:var(--clay-hi);text-underline-offset:3px}
+  ::selection{background:var(--clay);color:var(--ink)}
+
+  /* ───────── HERO ───────── */
+  .hero{position:relative;height:100svh;min-height:560px;overflow:hidden;background:#000;isolation:isolate}
+  .stage{position:absolute;bottom:0;
+         --stage-w:max(100vw,calc(max(100svh,560px) * 16 / 9));
+         left:calc(50% - var(--stage-w) / 2);width:var(--stage-w);aspect-ratio:16/9}
+  .stage.stage-over{z-index:9;pointer-events:none}
+  .stage>*{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .layer-back{object-fit:cover;z-index:1}
+  .title{inset:auto;left:50%;transform:translateX(-50%);width:min(100%,100vw);top:var(--title-top);height:auto;z-index:2;margin:0;text-align:center;
+         font-family:var(--serif);font-weight:560;font-size:min(var(--title-size),14.2vw);line-height:.9;letter-spacing:-.015em;
+         font-variation-settings:"opsz" 144,"SOFT" 0,"WONK" 1;color:var(--paper);
+         text-shadow:0 .012em 0 #8a5a3a,0 0 .5em rgba(217,163,91,.18);
+         
+         will-change:transform}
+  .layer-front{object-fit:cover;z-index:3;pointer-events:none}
+  .rover{z-index:4;object-fit:cover;filter:var(--video-filter);pointer-events:none}
+
+  /* Tünel Geçiş Katmanları (3320x1080 panorama, 545.4 px/sn yol hızına 1:1 kilitli, GPU'da hazır) */
+  .tunnel-layer{position:absolute;bottom:0;top:auto;left:0;height:100.7%;width:calc(100% * 3320 / 1920);
+                pointer-events:none;will-change:transform;opacity:0;visibility:hidden;
+                transform:translate3d(-106%, 0, 0);
+                filter:var(--tunnel-filter)}
+  .tunnel-layer.active{opacity:1;visibility:visible}
+  .tunnel-layer.back{z-index:3}
+  .tunnel-layer.front{z-index:1}
+  .tunnel-layer img{width:100%;height:100%;object-fit:fill;display:block}
+
+  .hero::after{content:"";position:absolute;left:0;right:0;bottom:0;height:22%;z-index:10;pointer-events:none;
+                background:linear-gradient(180deg,transparent,var(--night) 92%)}
+  .hero::before{content:"";position:absolute;inset:0;z-index:10;pointer-events:none;
+               background:radial-gradient(120% 90% at 50% 40%,transparent 55%,rgba(0,0,0,.55) 100%)}
+
+  nav{position:absolute;z-index:12;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;
+      padding:22px clamp(18px,4vw,48px);font:500 12px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase}
+  nav a{color:var(--paper);text-decoration:none;opacity:.8;transition:opacity .15s}
+  nav a:hover{opacity:1;color:var(--ochre)}
+  nav .mark{font:600 20px/1 var(--serif);letter-spacing:-.01em;text-transform:none;opacity:1;font-variation-settings:"opsz" 72,"WONK" 1}
+  nav .links{display:flex;gap:clamp(12px,2.5vw,28px);align-items:center}
+
+  /* Diegetic Scene Switcher HUD */
+  .scene-hud{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:7px;
+             padding:6px 12px;background:rgba(18,12,9,.65);border:1px solid rgba(239,227,201,.25);
+             box-shadow:3px 3px 0 var(--clay);font:500 11px/1 var(--mono);letter-spacing:.12em;
+             color:var(--paper);transition:transform .12s,box-shadow .12s,background .15s,border-color .15s;
+             backdrop-filter:blur(4px);user-select:none}
+  .scene-hud:hover{background:rgba(28,18,14,.88);border-color:var(--ochre);transform:translate(1px,1px);box-shadow:2px 2px 0 var(--clay)}
+  .scene-hud:active{transform:translate(3px,3px);box-shadow:0 0 0 var(--clay)}
+  .scene-hud .hud-dot{width:6px;height:6px;border-radius:50%;background:var(--ochre);box-shadow:0 0 6px var(--ochre);animation:hudPulse 2.4s infinite ease-in-out}
+  .scene-hud.active .hud-dot{background:var(--clay-hi);box-shadow:0 0 8px var(--clay-hi)}
+  .scene-hud .hud-name{color:var(--paper);font-weight:500}
+  .scene-hud .hud-btn{color:var(--ochre);font-weight:600;margin-left:3px}
+  @keyframes hudPulse{0%,100%{opacity:.6;transform:scale(.9)}50%{opacity:1;transform:scale(1.2)}}
+
+  .intro{position:absolute;z-index:2;left:50%;transform:translateX(-50%);
+         width:min(640px,90vw);text-align:center;top:auto;bottom:calc(max(28.5%, 165px) + 8svh)}
+  .tag{font:500 11.5px/1 var(--mono);letter-spacing:.2em;text-transform:uppercase;color:var(--ochre);margin:0 0 11px}
+  .lede{margin:0 auto 17px;font-size:clamp(17px,2vw,21px);line-height:1.5;color:var(--paper);
+        font-variation-settings:"opsz" 24,"SOFT" 60;text-shadow:0 1px 14px rgba(0,0,0,.85)}
+  .lede em{font-style:italic;color:var(--ochre)}
+  .cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+  .btn{display:inline-block;padding:13px 22px;border:2px solid var(--ink);color:var(--ink);background:var(--paper);
+       font:500 13px/1 var(--mono);letter-spacing:.06em;text-decoration:none;text-transform:uppercase;
+       box-shadow:5px 5px 0 var(--ink);transition:transform .12s,box-shadow .12s}
+  .btn:hover{transform:translate(2px,2px);box-shadow:3px 3px 0 var(--ink)}
+  .btn:active{transform:translate(5px,5px);box-shadow:0 0 0 var(--ink)}
+  .btn.pri{background:var(--clay);color:#1a0d06}
+  .btn.ghost{background:rgba(13,9,7,.55);color:var(--paper);border-color:var(--paper-dim);box-shadow:5px 5px 0 rgba(239,227,201,.25);backdrop-filter:blur(3px)}
+
+  .scroll-hint{position:absolute;z-index:11;left:50%;bottom:18px;transform:translateX(-50%);font:500 10.5px/1 var(--mono);
+               letter-spacing:.3em;color:var(--paper-dim);text-transform:uppercase;opacity:.7}
+
+  /* ───────── İÇERİK ───────── */
+  main{position:relative;background:var(--night);padding:0 clamp(18px,4vw,48px) 40px}
+  .wrap{max-width:980px;margin:0 auto}
+  section{padding:72px 0 8px}
+  .sec-h{display:flex;align-items:baseline;gap:16px;margin:0 0 30px}
+  .sec-h .n{font:500 12px/1 var(--mono);color:var(--clay-hi);letter-spacing:.12em}
+  h2{margin:0;font-size:clamp(28px,4vw,40px);font-weight:520;line-height:1.05;letter-spacing:-.02em;
+     font-variation-settings:"opsz" 96,"SOFT" 0,"WONK" 1}
+  .sec-h::after{content:"";flex:1;height:7px;align-self:center;opacity:.55;
+     background:repeating-linear-gradient(135deg,var(--paper-dim) 0 1px,transparent 1px 5px)}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:0;margin-top:0;border-top:2px solid var(--paper);border-bottom:2px solid var(--paper)}
+  .stat{padding:26px 22px 22px;border-left:1px dashed rgba(239,227,201,.3)}
+  .stat:first-child{border-left:0;padding-left:0}
+  .stat .k{font-size:clamp(38px,5vw,54px);line-height:1;font-weight:500;letter-spacing:-.03em;font-variation-settings:"opsz" 144,"WONK" 1}
+  .stat .k.ok{color:var(--ochre)}
+  .stat .l{font:400 12px/1.5 var(--mono);color:var(--paper-dim);margin-top:10px;text-transform:uppercase;letter-spacing:.06em}
+
+  .bars{margin:34px 0 0;display:grid;gap:18px}
+  .bar .t{display:flex;justify-content:space-between;font:400 12.5px/1 var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--paper-dim);margin-bottom:8px}
+  .bar .t b{color:var(--paper);font-weight:500}
+  .bar .track{height:22px;border:2px solid var(--paper);position:relative}
+  .bar .fill{position:absolute;inset:0 auto 0 0;width:var(--v);transform-origin:left;
+     background:repeating-linear-gradient(135deg,var(--clay) 0 6px,#8d4a2b 6px 8px)}
+  .js .bar .fill{transform:scaleX(0);transition:transform 1.2s cubic-bezier(.2,.8,.2,1)}
+  .js .bar.in .fill{transform:scaleX(1)}
+
+  .tbl{width:100%;border-collapse:collapse;font:400 14px/1.45 var(--mono)}
+  .tbl th,.tbl td{text-align:left;padding:13px 14px 13px 0;border-bottom:1px dashed rgba(239,227,201,.28)}
+  .tbl th{font-weight:500;font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--clay-hi);border-bottom:2px solid var(--paper)}
+  .tbl td.n{font-variant-numeric:tabular-nums}
+  .tbl .ok{color:var(--ochre);font-weight:500}
+  .scroll-x{overflow-x:auto}
+  .note{font:400 13px/1.6 var(--mono);color:var(--paper-dim);margin:14px 0 0}
+  code{font-family:var(--mono);font-size:.86em;background:#241810;border:1px solid rgba(239,227,201,.18);padding:1px 6px}
+
+  .term{position:relative;background:#0a0605;border:2px solid var(--paper);box-shadow:6px 6px 0 var(--clay)}
+  .term-bar{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-bottom:1px dashed rgba(239,227,201,.3);
+            font:500 11px/1 var(--mono);letter-spacing:.16em;color:var(--paper-dim);text-transform:uppercase}
+  .term button{all:unset;cursor:pointer;color:var(--ochre);font:500 11px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase}
+  .term button:hover{color:var(--paper)}
+  pre{margin:0;padding:18px 18px 20px;overflow:auto;font:13.5px/1.7 var(--mono);color:#e8d9b8}
+  pre .c{color:var(--clay-hi)}
+
+  .lic{border:2px solid var(--ink);background:var(--paper);color:#2a1d12;padding:26px 28px;box-shadow:8px 8px 0 var(--clay);font-size:16px;line-height:1.65}
+  .lic b{color:var(--ink)}
+  .lic hr{border:0;border-top:1px dashed #8a7656;margin:16px 0}
+
+  footer{max-width:980px;margin:90px auto 0;padding:24px 0 40px;border-top:2px solid var(--paper);
+         font:400 12.5px/1.8 var(--mono);color:var(--paper-dim);display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+  footer a{color:var(--paper)}
+
+  @media (max-width:640px){
+    nav{padding:14px 18px}
+    nav .links{gap:10px}
+    nav .links a:not(.keep){display:none}
+    .scene-hud{padding:5px 9px;font-size:10px}
+    .scene-hud .hud-name{display:none}
+    text.lens-text{font-size:108px!important;letter-spacing:0.02em!important}
+    .intro{bottom:38.5%!important;width:90vw!important}
+    .tag{font-size:10.5px;margin-bottom:8px}
+    .lede{font-size:15px!important;line-height:1.45;margin-bottom:14px}
+    .cta{gap:10px}
+    .btn{padding:11px 16px;font-size:12px}
+    .stat{border-left:0;border-top:1px dashed rgba(239,227,201,.3);padding-left:0}
+    .stat:first-child{border-top:0}
+  }
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    .js .bar .fill{transition:none;transform:none}
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-<header>
-  <div class="badge">GGUF · IQ2_S · 25 October 2026</div>
-  <h1>Caphlon-Model<br /><span>Qwen 3.8 27B, in 6.87 GiB</span></h1>
-  <p class="sub">A <b>27B language model</b> that runs on an <b>8 GB laptop</b>.
-    No distillation, no student model — vocabulary reduction and hybrid-aware layer pruning
-    keep the full 27B topology.</p>
-  <div class="cta">
-    <a class="btn pri" href="https://huggingface.co/ssuasd/Caphlon-Model">Download on Hugging Face</a>
-    <a class="btn" href="https://github.com/demiralpdev/Caphlon-Model">GitHub repository</a>
-    <a class="btn" href="https://github.com/demiralpdev/Caphlon-Model#quickstart">Quickstart</a>
+
+<header class="hero" id="top">
+  <nav>
+    <a class="mark" href="#top">Caphlon</a>
+    <div class="links">
+      <button type="button" class="scene-hud" id="scene-hud" title="Tünelden geç ve sahneyi değiştir">
+        <span class="hud-dot"></span>
+        <span class="hud-name" id="hud-scene-name">Midnight Canyon</span>
+        <span class="hud-btn">TUNNEL →</span>
+      </button>
+      <a href="#numbers">Numbers</a>
+      <a href="#run">Run it</a>
+      <a class="keep" href="https://github.com/demiralpdev/Caphlon-Model">GitHub</a>
+    </div>
+  </nav>
+
+  <!-- Katmanlar (arkadan öne): sahne-arka → başlık → kanyon-ön (gökyüzü şeffaf) → araç videosu -->
+  <div class="stage" id="stage">
+    <h1 class="sr-only">Caphlon</h1>
+    <svg class="stage-svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <!-- True-Color Vivid Lens: Amplifies natural scene colors, saturation & exposure without tinting -->
+        <filter id="vibrant-boost" color-interpolation-filters="sRGB">
+          <!-- 1. Boost natural color saturation 3.2x -->
+          <feColorMatrix type="saturate" values="3.2" result="sat"/>
+          <!-- 2. Exposure & contrast lift so hidden canyon strata & cosmic sky pop vividly -->
+          <feComponentTransfer in="sat" result="bright">
+            <feFuncR type="gamma" amplitude="2.2" exponent="0.75" offset="0.08"/>
+            <feFuncG type="gamma" amplitude="2.2" exponent="0.75" offset="0.08"/>
+            <feFuncB type="gamma" amplitude="2.4" exponent="0.72" offset="0.14"/>
+          </feComponentTransfer>
+        </filter>
+
+        <!-- Neutral starlight halo behind letters (soft ivory, NO orange dye) -->
+        <filter id="starlight-halo" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="16" result="blur"/>
+          <feComponentTransfer in="blur">
+            <feFuncA type="linear" slope="0.35"/>
+          </feComponentTransfer>
+        </filter>
+
+        <!-- Text mask using Impact Ultra-Condensed / Compressed font -->
+        <mask id="text-mask">
+          <text id="svg-title-mask" class="lens-text" x="960" y="462" fill="#ffffff">Caphlon</text>
+        </mask>
+      </defs>
+
+      <!-- Layer 1: Canyon backgrounds (all 3 pre-decoded in DOM to prevent swap flash) -->
+      <g id="svg-bg-back-group">
+        <image class="scene-back" href="assets/scene-canyon-back.webp" width="1920" height="1080" opacity="1"/>
+        <image class="scene-back" href="assets/scene-dusk-back.webp" width="1920" height="1080" opacity="0"/>
+        <image class="scene-back" href="assets/scene-dawn-back.webp" width="1920" height="1080" opacity="0"/>
+      </g>
+
+      <!-- Subtle starlight halo behind letters -->
+      <g opacity="0.3" id="svg-title-bloom">
+        <text class="lens-text" x="960" y="462" fill="#efe8db" filter="url(#starlight-halo)">Caphlon</text>
+      </g>
+
+      <!-- Layer 2: The Semi-Transparent Vivid Lens -->
+      <g mask="url(#text-mask)" id="svg-title-lens">
+        <!-- 1. Pixel-aligned background scene made vivid & vibrant inside the letters -->
+        <g filter="url(#vibrant-boost)">
+          <image class="scene-lens" href="assets/scene-canyon-back.webp" width="1920" height="1080" opacity="1"/>
+          <image class="scene-lens" href="assets/scene-dusk-back.webp" width="1920" height="1080" opacity="0"/>
+          <image class="scene-lens" href="assets/scene-dawn-back.webp" width="1920" height="1080" opacity="0"/>
+        </g>
+        <!-- 2. Semi-transparent glass body (lets vivid scene shine through with starlight clarity) -->
+        <rect width="1920" height="1080" fill="#ffffff" opacity="0.10" style="mix-blend-mode: screen;"/>
+        <!-- 3. Specular crystalline rim highlight on letter edges -->
+        <text class="lens-text" x="960" y="462" fill="none" stroke="rgba(255, 255, 255, 0.75)" stroke-width="2.5">Caphlon</text>
+      </g>
+
+      <!-- Layer 3: Foreground Cliffs (sandwiches the text) -->
+      <g id="svg-bg-front-group">
+        <image class="scene-front" href="assets/scene-canyon-cliffs-front.webp" width="1920" height="1080" opacity="1"/>
+        <image class="scene-front" href="assets/scene-dusk-cliffs-front.webp" width="1920" height="1080" opacity="0"/>
+        <image class="scene-front" href="assets/scene-dawn-cliffs-front.webp" width="1920" height="1080" opacity="0"/>
+      </g>
+    </svg>
+
+    <!-- Tunnel Layer: Back (karanlık tünel içi ve arka kaya omzu, aracın arkasında [z-index:3]) -->
+    <div class="tunnel-layer back" id="tunnel-back" aria-hidden="true">
+      <img src="assets/tunnel-back.webp" alt="" width="3320" height="1080" decoding="sync" />
+    </div>
+
+    <!-- Layer 4: Rover looping video [z-index:4] -->
+    <video class="rover" id="rover" muted loop autoplay playsinline preload="auto" aria-hidden="true">
+      <source src="assets/rover-loop.webm" type="video/webm" />
+    </video>
   </div>
+
+  <!-- Ön Tünel Katmanı (.stage-over z-index:9): ön taş kemer ve yolu tamamen kesen yekpare kaya perdesi -->
+  <div class="stage stage-over" aria-hidden="true">
+    <div class="tunnel-layer front" id="tunnel-front">
+      <img src="assets/tunnel-front.webp" alt="" width="3320" height="1080" decoding="sync" />
+    </div>
+  </div>
+
+  <div class="intro">
+    <p class="tag">GGUF · IQ2_S · 25 October 2026</p>
+    <p class="lede">A <em>27B</em> language model that runs on an 8&nbsp;GB laptop.
+      No distillation, no student model — the full 27B topology, in 6.87&nbsp;GiB.</p>
+    <div class="cta">
+      <a class="btn pri" href="https://huggingface.co/ssuasd/Caphlon-Model">Download on Hugging Face</a>
+      <a class="btn ghost" href="https://github.com/demiralpdev/Caphlon-Model#quickstart">Quickstart</a>
+    </div>
+  </div>
+  <div class="scroll-hint">scroll ↓</div>
 </header>
 
-<div class="grid">
-  <div class="stat"><div class="k ok">6.87 GiB</div><div class="l">single GGUF file, full 27B</div></div>
-  <div class="stat"><div class="k ok">96.7%</div><div class="l">HumanEval pass@1 (29/30)</div></div>
-  <div class="stat"><div class="k ok">92.9%</div><div class="l">MMLU retention vs base</div></div>
-  <div class="stat"><div class="k">+3.85%</div><div class="l">English perplexity cost</div></div>
-</div>
+<main>
+<div class="wrap">
 
-<h2>Benchmarks</h2>
-<table>
-  <tr><th>Test</th><th>Caphlon-Model</th><th>Base quant</th><th>Result</th></tr>
-  <tr><td>English perplexity (EN40)</td><td class="n">6.6088</td><td class="n">6.3638</td><td class="n">+3.85%</td></tr>
-  <tr><td>HumanEval, 30 problems</td><td class="n">29/30</td><td class="n">30/30</td><td class="ok">96.7%</td></tr>
-  <tr><td>MMLU, 502-question subset</td><td class="n">344/502</td><td class="n">370/502</td><td class="ok">92.9%</td></tr>
-</table>
-<p class="note">Measured 25 October 2026, Tesla T4, llama.cpp, temperature 0, thinking disabled.</p>
+<section id="numbers">
+  <div class="sec-h"><span class="n">01</span><h2>The numbers</h2></div>
+  <div class="stats">
+    <div class="stat"><div class="k ok">6.87 GiB</div><div class="l">single GGUF file, full 27B</div></div>
+    <div class="stat"><div class="k ok">96.7%</div><div class="l">HumanEval pass@1 (29/30)</div></div>
+    <div class="stat"><div class="k ok">92.9%</div><div class="l">MMLU retention vs base</div></div>
+    <div class="stat"><div class="k">+3.85%</div><div class="l">English perplexity cost</div></div>
+  </div>
+  <div class="bars" aria-hidden="true">
+    <div class="bar"><div class="t"><span>HumanEval retention</span><b>96.7%</b></div><div class="track"><div class="fill" style="--v:96.7%"></div></div></div>
+    <div class="bar"><div class="t"><span>MMLU retention</span><b>92.9%</b></div><div class="track"><div class="fill" style="--v:92.9%"></div></div></div>
+  </div>
+</section>
 
-<h2>Hardware requirements</h2>
-<table>
-  <tr><th>Setup</th><th>Minimum</th><th>Comfortable</th></tr>
-  <tr><td>GPU, full offload</td><td>8 GB VRAM (8K ctx)</td><td>12 GB VRAM (32K ctx)</td></tr>
-  <tr><td>CPU only</td><td>8 GB RAM (mmap)</td><td>16 GB RAM</td></tr>
-  <tr><td>Apple Silicon</td><td>16 GB unified</td><td>24 GB+</td></tr>
-  <tr><td>Disk</td><td>7 GB</td><td>—</td></tr>
-</table>
+<section>
+  <div class="sec-h"><span class="n">02</span><h2>Benchmarks</h2></div>
+  <div class="scroll-x">
+  <table class="tbl">
+    <tr><th>Test</th><th>Caphlon-Model</th><th>Base quant</th><th>Result</th></tr>
+    <tr><td>English perplexity (EN40)</td><td class="n">6.6088</td><td class="n">6.3638</td><td class="n">+3.85%</td></tr>
+    <tr><td>HumanEval, 30 problems</td><td class="n">29/30</td><td class="n">30/30</td><td class="ok">96.7%</td></tr>
+    <tr><td>MMLU, 502-question subset</td><td class="n">344/502</td><td class="n">370/502</td><td class="ok">92.9%</td></tr>
+  </table>
+  </div>
+  <p class="note">Measured 25 October 2026, Tesla T4, llama.cpp, temperature 0, thinking disabled.</p>
+</section>
 
-<h2>Quickstart</h2>
-<pre>llama-server -m Caphlon-Model-IQ2_S.gguf \
+<section>
+  <div class="sec-h"><span class="n">03</span><h2>Hardware requirements</h2></div>
+  <div class="scroll-x">
+  <table class="tbl">
+    <tr><th>Setup</th><th>Minimum</th><th>Comfortable</th></tr>
+    <tr><td>GPU, full offload</td><td>8 GB VRAM (8K ctx)</td><td>12 GB VRAM (32K ctx)</td></tr>
+    <tr><td>CPU only</td><td>8 GB RAM (mmap)</td><td>16 GB RAM</td></tr>
+    <tr><td>Apple Silicon</td><td>16 GB unified</td><td>24 GB+</td></tr>
+    <tr><td>Disk</td><td>7 GB</td><td>—</td></tr>
+  </table>
+  </div>
+</section>
+
+<section id="run">
+  <div class="sec-h"><span class="n">04</span><h2>Quickstart</h2></div>
+  <div class="term">
+    <div class="term-bar"><span>llama-server</span><button type="button" id="copy">Copy</button></div>
+<pre id="cmd">llama-server -m Caphlon-Model-IQ2_S.gguf \
   -ngl 99 -c 32768 -np 1 \
   -b 4096 -ub 1024 --flash-attn on \
   --spec-type ngram-mod --spec-ngram-mod-n-match 24 \
   --spec-ngram-mod-n-min 48 --spec-ngram-mod-n-max 64 \
   --jinja --port 8080</pre>
-<p class="note">Measured on this build: 29.7 tok/s on file-edit workloads (2.34× the
-baseline 12.7), 12.4 tok/s on free-form prose. Send
-<code>chat_template_kwargs: {"enable_thinking": false}</code> or the model will spend
-your context on internal reasoning.</p>
+  </div>
+  <p class="note">Measured on this build: 29.7 tok/s on file-edit workloads (2.34× the
+  baseline 12.7), 12.4 tok/s on free-form prose. Send
+  <code>chat_template_kwargs: {"enable_thinking": false}</code> or the model will spend
+  your context on internal reasoning.</p>
+</section>
 
-<h2>License and attribution</h2>
-<div class="lic">
-  Repository contents: <b>Apache-2.0</b>. Weights are derived from
-  <b>Qwen 3.8 27B</b>, distributed under <b>Apache-2.0</b> — the upstream license
-  governs them, permits commercial use, and requires that notices be retained.
-  <br /><br />
-  "Caphlon" is a project mark. Apache-2.0 grants no trademark rights: you may
-  redistribute the weights, but you may not present a modified build as official,
-  endorsed, or authored by this project.
+<section>
+  <div class="sec-h"><span class="n">05</span><h2>License and attribution</h2></div>
+  <div class="lic">
+    Repository contents: <b>Apache-2.0</b>. Weights are derived from
+    <b>Qwen 3.8 27B</b>, distributed under <b>Apache-2.0</b> — the upstream license
+    governs them, permits commercial use, and requires that notices be retained.
+    <hr />
+    "Caphlon" is a project mark. Apache-2.0 grants no trademark rights: you may
+    redistribute the weights, but you may not present a modified build as official,
+    endorsed, or authored by this project.
+  </div>
+</section>
+
 </div>
 
 <footer>
-  Caphlon-Model 1.0.0 · built 25 October 2026 · by
-  <a href="https://github.com/demiralpdev">demiralpdev</a> ·
-  <a href="https://github.com/demiralpdev/Caphlon-Model/blob/main/NOTICE.md">NOTICE</a> ·
-  base model Qwen 3.8 27B
+  <span>Caphlon-Model 1.0.0 · built 25 October 2026 · by
+  <a href="https://github.com/demiralpdev">demiralpdev</a></span>
+  <span><a href="https://github.com/demiralpdev/Caphlon-Model/blob/main/NOTICE.md">NOTICE</a> · base model Qwen 3.8 27B</span>
 </footer>
-</div>
+</main>
+
+<script>
+(function(){
+  document.documentElement.classList.add('js');
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* Safari: şeffaf WebM desteklemez → HEVC+alpha .mov kullan (dosya yoksa webm kalır) */
+  var v = document.getElementById('rover');
+  var ua = navigator.userAgent;
+  if (/^((?!chrome|android|crios|fxios|edg).)*safari/i.test(ua)) {
+    v.innerHTML = '<source src="assets/rover-loop.mov" type=\'video/mp4; codecs="hvc1"\'>' + v.innerHTML;
+    v.load();
+  }
+  if (reduce) { v.removeAttribute('autoplay'); v.pause(); }
+  else { var p = v.play(); if (p && p.catch) p.catch(function(){}); }
+
+  /* Başlık hafif paralaks + mobil dikey yerleşim: kaydırdıkça yavaş yükselir, kanyonun arkasında kalır */
+  var tMask = document.getElementById('svg-title-mask');
+  var tBloom = document.getElementById('svg-title-bloom');
+  var tLens = document.getElementById('svg-title-lens');
+  var mqMobile = matchMedia('(max-width: 640px)');
+  var lensTexts = document.querySelectorAll('text.lens-text');
+  function syncTitleY(){
+    var yVal = mqMobile.matches ? '320' : '462';
+    for (var i = 0; i < lensTexts.length; i++) lensTexts[i].setAttribute('y', yVal);
+  }
+  syncTitleY();
+  if (mqMobile.addEventListener) mqMobile.addEventListener('change', syncTitleY);
+  var ticking = false;
+  function onScroll(){
+    if (ticking || reduce) return; ticking = true;
+    requestAnimationFrame(function(){
+      var dy = (-Math.min(scrollY, innerHeight) * 0.18).toFixed(1);
+      var trans = 'translate(0, ' + dy + ')';
+      if (tMask) tMask.setAttribute('transform', trans);
+      if (tBloom) tBloom.setAttribute('transform', trans);
+      if (tLens) tLens.setAttribute('transform', trans);
+      ticking = false;
+    });
+  }
+  addEventListener('scroll', onScroll, {passive:true});
+
+  /* Barlar görününce dolsun */
+  var bars = document.querySelectorAll('.bar');
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function(es){
+      es.forEach(function(e){ if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target);} });
+    }, {threshold:.4});
+    bars.forEach(function(b){ io.observe(b); });
+  } else bars.forEach(function(b){ b.classList.add('in'); });
+
+  /* Kopyala */
+  var btn = document.getElementById('copy');
+  btn.addEventListener('click', function(){
+    var txt = document.getElementById('cmd').textContent;
+    (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(function(){
+      btn.textContent = 'Copied'; setTimeout(function(){ btn.textContent = 'Copy'; }, 1400);
+    }).catch(function(){ btn.textContent = 'Press ⌘C'; });
+  });
+
+  /* ───────── SCENE & CINEMATIC TUNNEL SYSTEM (1:1 ROAD-SPEED LOCKED) ───────── */
+  // rover-loop.webm yol akış hızı: 18.18 px/kare @ 30fps = 545.4 px/sn (1920x1080 sahne koordinatlarında)
+  var STAGE_W = 1920;
+  var TUNNEL_W = 3320;
+  var START_SHIFT = -3420; // Sahnenin 100px sol dışından pürüzsüz giriş
+  var END_SHIFT = 2060;    // Sahnenin 140px sağ dışına tamamen çıktıktan sonra kapanış
+  var ROAD_SPEED = 545.4;
+
+  // Sabit gece pozlaması (--video-filter ve --tunnel-filter hiç değişmez → sıfır ani parlama veya kararma)
+  var SCENES = [
+    { name: 'Midnight Canyon' },
+    { name: 'Sandstone Arch' },
+    { name: 'Basalt Badlands' }
+  ];
+
+  var currentSceneIdx = 0;
+  var inTransition = false;
+  var tBack = document.getElementById('tunnel-back');
+  var tFront = document.getElementById('tunnel-front');
+  var backImgs = document.querySelectorAll('.scene-back');
+  var lensImgs = document.querySelectorAll('.scene-lens');
+  var frontImgs = document.querySelectorAll('.scene-front');
+  var hudName = document.getElementById('hud-scene-name');
+  var hudBtn = document.getElementById('scene-hud');
+
+  // Tünel katmanlarını ilk geçişten önce GPU önbelleğine decode et
+  [tBack, tFront].forEach(function(layer) {
+    var img = layer && layer.querySelector('img');
+    if (img && img.decode) img.decode().catch(function(){});
+  });
+
+  function swapScene(nextIdx) {
+    currentSceneIdx = nextIdx % SCENES.length;
+    for (var i = 0; i < SCENES.length; i++) {
+      var op = (i === currentSceneIdx) ? '1' : '0';
+      if (backImgs[i]) backImgs[i].setAttribute('opacity', op);
+      if (lensImgs[i]) lensImgs[i].setAttribute('opacity', op);
+      if (frontImgs[i]) frontImgs[i].setAttribute('opacity', op);
+    }
+    if (hudName) hudName.textContent = SCENES[currentSceneIdx].name;
+  }
+
+  function startTunnelTransition(targetIdx) {
+    if (inTransition) return;
+    var nextIdx = (typeof targetIdx === 'number') ? (targetIdx % SCENES.length) : (currentSceneIdx + 1) % SCENES.length;
+
+    if (reduce) {
+      swapScene(nextIdx);
+      return;
+    }
+
+    inTransition = true;
+    if (hudBtn) hudBtn.classList.add('active');
+
+    // Başlangıç: shiftPx = -3420 (-103.012%), ekranın tamamen sol dışında görünür hale gelir
+    var initPct = ((START_SHIFT / TUNNEL_W) * 100).toFixed(4);
+    var initTrans = 'translate3d(' + initPct + '%, 0, 0)';
+    tBack.style.transform = initTrans;
+    tFront.style.transform = initTrans;
+    tBack.classList.add('active');
+    tFront.classList.add('active');
+
+    var lastNow = performance.now();
+    var lastVidT = v ? v.currentTime : 0;
+    var vidElapsed = 0;
+    var simElapsed = 0;
+    var sceneSwapped = false;
+
+    function step(now) {
+      var dt = Math.min(Math.max((now - lastNow) / 1000, 0), 0.1);
+      lastNow = now;
+
+      // 60/120Hz pürüzsüz akış + rover-loop.webm video zamanına faz kilidi (PLL)
+      if (v && !v.paused && v.readyState >= 2) {
+        var vt = v.currentTime;
+        var dvt = vt - lastVidT;
+        if (dvt < -1.0) dvt += (v.duration || 5.333333);
+        if (dvt > 0 && dvt < 0.5) {
+          vidElapsed += dvt;
+          lastVidT = vt;
+        }
+        simElapsed += dt * (v.playbackRate || 1);
+        var phaseErr = vidElapsed - simElapsed;
+        if (Math.abs(phaseErr) < 0.25) {
+          simElapsed += phaseErr * 0.16;
+        }
+      } else {
+        simElapsed += dt;
+      }
+
+      // 1:1 Yol Hızı: shiftPx saniyede tam 545.4 sahne pikseli sağa (+X) ilerler
+      var shiftPx = START_SHIFT + simElapsed * ROAD_SPEED;
+      var pct = (shiftPx / TUNNEL_W) * 100;
+      var trans = 'translate3d(' + pct.toFixed(4) + '%, 0, 0)';
+      tBack.style.transform = trans;
+      tFront.style.transform = trans;
+
+      // Yekpare kaya perdesi x = 581..2738 aralığında %100 opaktır → shiftPx ∈ [-818, -581] iken tüm ekran (1920x1080) kapalıdır.
+      // Tam merkezde (shiftPx >= -700) önceden decode edilmiş sahne sıfır parlama/kararmayla değişir:
+      if (shiftPx >= -700 && !sceneSwapped) {
+        swapScene(nextIdx);
+        sceneSwapped = true;
+      }
+
+      // Tünelin sol ucu (x=0) hem sahne sınırını (END_SHIFT=2060) hem de tarayıcı görünür ekranını (innerWidth) tamamen terk edene kadar ASLA gizleme
+      var fullyExited = (shiftPx >= END_SHIFT) && (tFront.getBoundingClientRect().left >= innerWidth + 16);
+
+      if (!fullyExited) {
+        requestAnimationFrame(step);
+      } else {
+        tBack.classList.remove('active');
+        tFront.classList.remove('active');
+        tBack.style.transform = 'translate3d(-106%, 0, 0)';
+        tFront.style.transform = 'translate3d(-106%, 0, 0)';
+        inTransition = false;
+        if (hudBtn) hudBtn.classList.remove('active');
+        resetAutoTimer();
+      }
+    }
+    requestAnimationFrame(step);
+  }
+
+  // Otomatik periyodik tünel geçişi (hero görünürken her 18 saniyede bir)
+  var autoTimer = null;
+  function resetAutoTimer() {
+    clearTimeout(autoTimer);
+    if (reduce) return;
+    autoTimer = setTimeout(function(){
+      if (!inTransition && heroInView) {
+        startTunnelTransition();
+      }
+    }, 18000);
+  }
+
+  var heroInView = true;
+  if ('IntersectionObserver' in window) {
+    var heroEl = document.getElementById('top');
+    if (heroEl) {
+      var hObs = new IntersectionObserver(function(entries){
+        heroInView = entries[0].isIntersecting;
+        if (heroInView) resetAutoTimer();
+        else clearTimeout(autoTimer);
+      }, {threshold: 0.15});
+      hObs.observe(heroEl);
+    }
+  }
+
+  if (hudBtn) {
+    hudBtn.addEventListener('click', function(){
+      startTunnelTransition();
+    });
+  }
+
+  resetAutoTimer();
+})();
+</script>
 </body>
 </html>

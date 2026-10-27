@@ -19,16 +19,17 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23c4724a'/><text x='16' y='22' font-size='18' font-family='serif' font-weight='bold' fill='%23faf7f0' text-anchor='middle'>C</text></svg>" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Antonio:wght@700&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=DM+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Antonio:wght@700&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=DM+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+<noscript><link href="https://fonts.googleapis.com/css2?family=Antonio:wght@700&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=DM+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" /></noscript>
 <link rel="preload" as="image" href="assets/scene-canyon-back.webp" />
-<link rel="preload" as="image" href="assets/world-mars.webp" />
-<link rel="preload" as="image" href="assets/world-sunset-arch.webp" />
-<link rel="preload" as="image" href="assets/world-cyber-city.webp" />
-<link rel="preload" as="image" href="assets/world-cyber-city-lights.webp" />
-<link rel="preload" as="image" href="assets/scene-dawn-back.webp" />
-<link rel="preload" as="image" href="assets/scene-canyon-cliffs-front.webp" />
-<link rel="preload" as="image" href="assets/tunnel-front.webp" />
-<link rel="preload" as="image" href="assets/tunnel-back.webp" />
+<link rel="prefetch" as="image" href="assets/world-mars.webp" />
+<link rel="prefetch" as="image" href="assets/world-sunset-arch.webp" />
+<link rel="prefetch" as="image" href="assets/world-cyber-city.webp" />
+<link rel="prefetch" as="image" href="assets/world-cyber-city-lights.webp" />
+<link rel="prefetch" as="image" href="assets/scene-dawn-back.webp" />
+<link rel="prefetch" as="image" href="assets/scene-canyon-cliffs-front.webp" />
+<link rel="prefetch" as="image" href="assets/tunnel-front.webp" />
+<link rel="prefetch" as="image" href="assets/tunnel-back.webp" />
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -607,7 +608,7 @@
     </div>
 
     <!-- ───────── LAYER 10: ROVER LOOPING CAMPER VAN ───────── -->
-    <video class="rover" id="rover" muted loop autoplay playsinline preload="auto" aria-hidden="true">
+    <video class="rover" id="rover" muted loop autoplay playsinline preload="metadata" aria-hidden="true">
       <source src="assets/rover-loop.webm" type="video/webm" />
     </video>
 

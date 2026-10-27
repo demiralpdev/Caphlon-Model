@@ -608,9 +608,7 @@
     </div>
 
     <!-- ───────── LAYER 10: ROVER LOOPING CAMPER VAN ───────── -->
-    <video class="rover" id="rover" muted loop autoplay playsinline preload="metadata" aria-hidden="true">
-      <source src="assets/rover-loop.webm" type="video/webm" />
-    </video>
+    <video class="rover" id="rover" muted loop autoplay playsinline preload="auto" aria-hidden="true"></video>
 
     <!-- ───────── LAYER 15: TUNNEL FRONT ───────── -->
     <div class="tunnel-layer front" id="tunnel-front" aria-hidden="true">
@@ -729,6 +727,63 @@
   var tBack = document.getElementById('tunnel-back');
   var tFront = document.getElementById('tunnel-front');
   var v = document.getElementById('rover');
+
+  // ───────── GAPLESS ROVER LOOP (MediaSource) ─────────
+  // Native <video loop> seeks back to 0 at the end, which stalls the decoder for
+  // 2-3 frames and makes the seam visible. Here the same clip is appended to a
+  // MediaSource buffer over and over (sequence mode) so playback never restarts.
+  // mediaTime keeps growing; the tunnel sync uses (mediaTime * fps) % TOTAL_FRAMES.
+  // Falls back to the native loop wherever MediaSource/VP9 is unavailable.
+  (function gaplessRover() {
+    if (!v) return;
+    var FILE = 'assets/rover-loop.webm';
+    var MIME = 'video/webm; codecs="vp9"';
+    var MS = window.MediaSource;
+    function nativeLoop() { v.loop = true; v.src = FILE; v.play().catch(function(){}); }
+    if (!MS || !MS.isTypeSupported || !MS.isTypeSupported(MIME)) { nativeLoop(); return; }
+    fetch(FILE).then(function(r) { return r.arrayBuffer(); }).then(function(buf) {
+      var ms = new MS();
+      var sb = null;
+      var failed = false;
+      function fallback() {
+        if (failed) return;
+        failed = true;
+        try { v.removeAttribute('src'); v.load(); } catch (e) {}
+        v.loop = true;
+        v.src = FILE;
+        v.play().catch(function(){});
+      }
+      function pump() {
+        if (failed || !sb || sb.updating || ms.readyState !== 'open') return;
+        try {
+          var b = sb.buffered;
+          if (b.length && v.currentTime - b.start(0) > 12) {
+            sb.remove(b.start(0), v.currentTime - 6);
+            return;
+          }
+          var ahead = b.length ? b.end(b.length - 1) - v.currentTime : 0;
+          if (ahead < 8) sb.appendBuffer(buf.slice(0));
+        } catch (e) { fallback(); }
+      }
+      ms.addEventListener('sourceopen', function() {
+        if (sb) return;
+        try {
+          sb = ms.addSourceBuffer(MIME);
+          sb.mode = 'sequence';
+          sb.addEventListener('updateend', pump);
+          sb.addEventListener('error', fallback);
+          pump();
+          v.play().catch(function(){});
+        } catch (e) { fallback(); }
+      });
+      v.loop = false;
+      v.removeAttribute('loop');
+      v.src = URL.createObjectURL(ms);
+      v.addEventListener('timeupdate', pump);
+      v.addEventListener('error', fallback);
+      setInterval(pump, 1000);
+    }).catch(nativeLoop);
+  })();
 
   [tBack, tFront].forEach(function(layer) {
     var img = layer && layer.querySelector('img');

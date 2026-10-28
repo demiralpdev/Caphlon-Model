@@ -19,17 +19,9 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23c4724a'/><text x='16' y='22' font-size='18' font-family='serif' font-weight='bold' fill='%23faf7f0' text-anchor='middle'>C</text></svg>" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Antonio:wght@700&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=DM+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
-<noscript><link href="https://fonts.googleapis.com/css2?family=Antonio:wght@700&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=DM+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" /></noscript>
+<link href="https://fonts.googleapis.com/css2?family=Antonio:wght@700&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=DM+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <link rel="preload" as="image" href="assets/scene-canyon-back.webp" />
-<link rel="prefetch" as="image" href="assets/world-mars.webp" />
-<link rel="prefetch" as="image" href="assets/world-sunset-arch.webp" />
-<link rel="prefetch" as="image" href="assets/world-cyber-city.webp" />
-<link rel="prefetch" as="image" href="assets/world-cyber-city-lights.webp" />
-<link rel="prefetch" as="image" href="assets/scene-dawn-back.webp" />
-<link rel="prefetch" as="image" href="assets/scene-canyon-cliffs-front.webp" />
-<link rel="prefetch" as="image" href="assets/tunnel-front.webp" />
-<link rel="prefetch" as="image" href="assets/tunnel-back.webp" />
+<link rel="preload" as="image" href="assets/scene-canyon-cliffs-front.webp" />
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -441,25 +433,25 @@
 
     <!-- WORLD SCENE 1: Mars Horizon with Moebius Earth Crescent & Rising Sun -->
     <div class="world-scene" id="ws-1">
-      <img class="world-bg" src="assets/world-mars.webp" alt="Mars landscape with Moebius Earth and rising Sun" width="1920" height="1080" loading="eager" />
+      <img class="world-bg" data-late="assets/world-mars.webp" alt="Mars landscape with Moebius Earth and rising Sun" width="1920" height="1080" />
       <canvas id="canvas-mars" class="world-canvas" width="1920" height="1080"></canvas>
     </div>
 
     <!-- WORLD SCENE 2: Coral Sunset Arch -->
     <div class="world-scene" id="ws-2">
-      <img class="world-bg" src="assets/world-sunset-arch.webp" alt="Moebius coral sunset canyon arch" width="1920" height="1080" loading="lazy" />
+      <img class="world-bg" data-late="assets/world-sunset-arch.webp" alt="Moebius coral sunset canyon arch" width="1920" height="1080" />
       <canvas id="canvas-sunset" class="world-canvas" width="1920" height="1080"></canvas>
     </div>
 
     <!-- WORLD SCENE 3: Neo-Metropolis (Warm Orange/Salmon Cyberpunk Skyline) -->
     <div class="world-scene" id="ws-3">
-      <img class="world-bg" src="assets/world-cyber-city.webp" alt="Cyberpunk metropolis skyline at twilight in warm orange and coral tones" width="1920" height="1080" loading="lazy" />
+      <img class="world-bg" data-late="assets/world-cyber-city.webp" alt="Cyberpunk metropolis skyline at twilight in warm orange and coral tones" width="1920" height="1080" />
       <canvas id="canvas-city" class="world-canvas" width="1920" height="1080"></canvas>
     </div>
 
     <!-- WORLD SCENE 4: Midnight Gorge with Crescent Moon -->
     <div class="world-scene" id="ws-4">
-      <img class="world-bg" src="assets/scene-dawn-back.webp" alt="Moebius midnight canyon gorge under crescent moon" width="1920" height="1080" loading="lazy" />
+      <img class="world-bg" data-late="assets/scene-dawn-back.webp" alt="Moebius midnight canyon gorge under crescent moon" width="1920" height="1080" />
       <canvas id="canvas-dawn" class="world-canvas" width="1920" height="1080"></canvas>
     </div>
 
@@ -608,7 +600,9 @@
     </div>
 
     <!-- ───────── LAYER 10: ROVER LOOPING CAMPER VAN ───────── -->
-    <video class="rover" id="rover" muted loop autoplay playsinline preload="auto" aria-hidden="true"></video>
+    <video class="rover" id="rover" muted loop autoplay playsinline preload="auto" aria-hidden="true">
+      <source src="assets/rover-loop.webm" type="video/webm" />
+    </video>
 
     <!-- ───────── LAYER 15: TUNNEL FRONT ───────── -->
     <div class="tunnel-layer front" id="tunnel-front" aria-hidden="true">
@@ -728,42 +722,66 @@
   var tFront = document.getElementById('tunnel-front');
   var v = document.getElementById('rover');
 
-  // ───────── GAPLESS ROVER LOOP (MediaSource) ─────────
-  // Native <video loop> seeks back to 0 at the end, which stalls the decoder for
-  // 2-3 frames and makes the seam visible. Here the same clip is appended to a
-  // MediaSource buffer over and over (sequence mode) so playback never restarts.
-  // mediaTime keeps growing; the tunnel sync uses (mediaTime * fps) % TOTAL_FRAMES.
-  // Falls back to the native loop wherever MediaSource/VP9 is unavailable.
+  // ───────── LOAD ORDER: hero + van video first, the rest afterwards ─────────
+  // Chapter backgrounds and tunnel art are fetched only once the van video can play,
+  // so slow connections spend their bandwidth on the entrance first.
+  (function lateAssets() {
+    var done = false;
+    function go() {
+      if (done) return; done = true;
+      document.querySelectorAll('img[data-late]').forEach(function(im) {
+        im.src = im.getAttribute('data-late'); im.removeAttribute('data-late');
+      });
+      ['assets/world-cyber-city-lights.webp','assets/tunnel-back.webp','assets/tunnel-front.webp']
+        .forEach(function(u) { new Image().src = u; });
+    }
+    var rv = document.getElementById('rover');
+    if (rv) {
+      // go() only when the whole clip is downloaded, so nothing competes with it
+      function check() {
+        var b = rv.buffered;
+        if (rv.duration && b.length && b.end(b.length - 1) >= rv.duration - 0.1) go();
+      }
+      rv.addEventListener('canplay', function() { if (rv.paused && !rv.ended) rv.play().catch(function(){}); });
+      rv.addEventListener('progress', check);
+      rv.addEventListener('canplaythrough', check);
+      rv.addEventListener('loadeddata', check);
+      check();
+    }
+    setTimeout(go, 45000);
+  })();
+
+  // ───────── GAPLESS ROVER LOOP (MediaSource, optional upgrade) ─────────
+  // The clip starts playing natively (progressive, works everywhere, no waiting).
+  // Native <video loop> stalls 2-3 frames at every wrap, so once the file is fully
+  // downloaded we switch, at the next wrap, to a MediaSource that appends the clip
+  // endlessly (sequence mode) and never restarts. mediaTime then keeps growing; the
+  // tunnel sync already uses (mediaTime * fps) % TOTAL_FRAMES. On any failure we
+  // fall back to the plain native loop.
   (function gaplessRover() {
     if (!v) return;
     var FILE = 'assets/rover-loop.webm';
     var MIME = 'video/webm; codecs="vp9"';
     var MS = window.MediaSource;
-    function nativeLoop() { v.loop = true; v.src = FILE; v.play().catch(function(){}); }
-    if (!MS || !MS.isTypeSupported || !MS.isTypeSupported(MIME)) { nativeLoop(); return; }
-    fetch(FILE).then(function(r) { return r.arrayBuffer(); }).then(function(buf) {
-      var ms = new MS();
-      var sb = null;
-      var failed = false;
-      function fallback() {
-        if (failed) return;
-        failed = true;
-        try { v.removeAttribute('src'); v.load(); } catch (e) {}
-        v.loop = true;
-        v.src = FILE;
-        v.play().catch(function(){});
-      }
+    if (!MS || !MS.isTypeSupported || !MS.isTypeSupported(MIME)) return;
+    var buf = null, upgraded = false;
+    function nativeLoop() {
+      try { v.removeAttribute('src'); } catch (e) {}
+      v.loop = true; v.src = FILE; v.play().catch(function(){});
+    }
+    function upgrade() {
+      if (upgraded || !buf) return;
+      upgraded = true;
+      var ms = new MS(), sb = null, failed = false;
+      function fail() { if (failed) return; failed = true; nativeLoop(); }
       function pump() {
         if (failed || !sb || sb.updating || ms.readyState !== 'open') return;
         try {
           var b = sb.buffered;
-          if (b.length && v.currentTime - b.start(0) > 12) {
-            sb.remove(b.start(0), v.currentTime - 6);
-            return;
-          }
+          if (b.length && v.currentTime - b.start(0) > 12) { sb.remove(b.start(0), v.currentTime - 6); return; }
           var ahead = b.length ? b.end(b.length - 1) - v.currentTime : 0;
           if (ahead < 8) sb.appendBuffer(buf.slice(0));
-        } catch (e) { fallback(); }
+        } catch (e) { fail(); }
       }
       ms.addEventListener('sourceopen', function() {
         if (sb) return;
@@ -771,18 +789,29 @@
           sb = ms.addSourceBuffer(MIME);
           sb.mode = 'sequence';
           sb.addEventListener('updateend', pump);
-          sb.addEventListener('error', fallback);
+          sb.addEventListener('error', fail);
           pump();
           v.play().catch(function(){});
-        } catch (e) { fallback(); }
+        } catch (e) { fail(); }
       });
       v.loop = false;
-      v.removeAttribute('loop');
       v.src = URL.createObjectURL(ms);
       v.addEventListener('timeupdate', pump);
-      v.addEventListener('error', fallback);
+      v.addEventListener('error', fail);
       setInterval(pump, 1000);
-    }).catch(nativeLoop);
+    }
+    function start() {
+      fetch(FILE).then(function(r) { return r.arrayBuffer(); }).then(function(b) {
+        buf = b;
+        // switch exactly when the native loop wraps (the stall happens there anyway)
+        v.addEventListener('seeking', function onWrap() {
+          v.removeEventListener('seeking', onWrap);
+          upgrade();
+        });
+      }).catch(function(){});
+    }
+    if (document.readyState === 'complete') setTimeout(start, 1500);
+    else window.addEventListener('load', function() { setTimeout(start, 1500); });
   })();
 
   [tBack, tFront].forEach(function(layer) {

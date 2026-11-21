@@ -1,0 +1,2573 @@
+diff --git a/ggml/include/ggml.h b/ggml/include/ggml.h
+index 882193a..cd38ea4 100644
+--- a/ggml/include/ggml.h
++++ b/ggml/include/ggml.h
+@@ -434,7 +434,8 @@ extern "C" {
+         // slots above upstream types; type_traits is sized to COUNT (143) with 43..141 unused.
+         GGML_TYPE_PQ2_0 = 142,
+         GGML_TYPE_PTQ1_0 = 143, // Prism-private ternary, group 128
+-        GGML_TYPE_COUNT   = 144,
++        GGML_TYPE_PTQ1_SB = 144, // Prism-private superblock ternary, group 1024
++        GGML_TYPE_COUNT   = 145,
+     };
+ 
+     // [TAG_GGML_PREC]
+@@ -492,6 +493,7 @@ extern "C" {
+         GGML_FTYPE_MOSTLY_Q2_0    = 28, // except 1d tensors
+         GGML_FTYPE_MOSTLY_PQ2_0 = 128, // except 1d tensors (Prism-private group-128 Q2_0)
+         GGML_FTYPE_MOSTLY_PTQ1_0 = 129, // except 1d tensors (Prism-private group-128 ternary)
++        GGML_FTYPE_MOSTLY_PTQ1_SB = 130, // except 1d tensors (Prism-private group-1024 superblock ternary)
+     };
+ 
+     // available tensor operations:
+diff --git a/ggml/src/ggml-common.h b/ggml/src/ggml-common.h
+index ac8f3bd..d51cd85 100644
+--- a/ggml/src/ggml-common.h
++++ b/ggml/src/ggml-common.h
+@@ -104,6 +104,9 @@ typedef sycl::half2 ggml_half2;
+ #define QI_PTQ1_0 (QK_PTQ1_0 / 32)
+ #define QR_PTQ1_0 1
+ 
++#define QI_PTQ1_SB (QK_PTQ1_SB / 32)
++#define QR_PTQ1_SB 1
++
+ 
+ #define QI4_0 (QK4_0 / (4 * QR4_0))
+ #define QR4_0 2
+@@ -219,6 +222,15 @@ typedef struct {
+ } block_ptq1_0;
+ static_assert(sizeof(block_ptq1_0) == sizeof(ggml_half) + QK_PTQ1_0/64 + (QK_PTQ1_0 - 4*QK_PTQ1_0/64)/5, "wrong ptq1_0 block size/padding");
+ 
++// Group-1024 superblock ternary (8x 128-element sub-blocks, byte-aligned 211 B -> 1.6484 bpw)
++#define QK_PTQ1_SB 1024
++typedef struct {
++    uint8_t d[2];      // ggml_half LE bytes (alignof == 1)
++    uint8_t scales[4]; // 8x 4-bit nibbles (LE u32) for 128-element sub-blocks
++    uint8_t qs[205];   // 204*5 + 4 = 1024 sequential trits in base-3
++} block_ptq1_sb;
++static_assert(sizeof(block_ptq1_sb) == 211, "wrong ptq1_sb block size/padding");
++
+ #define QK4_0 32
+ typedef struct {
+     ggml_half d;           // delta
+diff --git a/ggml/src/ggml-cpu/arch-fallback.h b/ggml/src/ggml-cpu/arch-fallback.h
+index 6539594..b41561c 100644
+--- a/ggml/src/ggml-cpu/arch-fallback.h
++++ b/ggml/src/ggml-cpu/arch-fallback.h
+@@ -21,6 +21,7 @@
+ // PQ2_0 x Q8_K has only the generic vec_dot outside x86; alias it until a SIMD version lands
+ #define ggml_vec_dot_pq2_0_q8_K_generic ggml_vec_dot_pq2_0_q8_K
+ #define ggml_vec_dot_ptq1_0_q8_0_generic ggml_vec_dot_ptq1_0_q8_0
++#define ggml_vec_dot_ptq1_sb_q8_0_generic ggml_vec_dot_ptq1_sb_q8_0
+ #define ggml_vec_dot_q2_0_q8_0_generic ggml_vec_dot_q2_0_q8_0
+ #define ggml_vec_dot_tq1_0_q8_K_generic ggml_vec_dot_tq1_0_q8_K
+ #define ggml_vec_dot_tq2_0_q8_K_generic ggml_vec_dot_tq2_0_q8_K
+@@ -124,6 +125,7 @@
+ #elif defined(__POWERPC__) || defined(__powerpc__)
+ // PTQ1_0 currently has only the generic vec_dot; alias it here until a SIMD version lands
+ #define ggml_vec_dot_ptq1_0_q8_0_generic ggml_vec_dot_ptq1_0_q8_0
++#define ggml_vec_dot_ptq1_sb_q8_0_generic ggml_vec_dot_ptq1_sb_q8_0
+ // ref: https://github.com/ggml-org/llama.cpp/pull/14146#issuecomment-2972561679
+ // quants.c
+ #define quantize_row_q8_K_generic quantize_row_q8_K
+@@ -182,6 +184,7 @@
+ #elif defined(__loongarch64)
+ // PTQ1_0 currently has only the generic vec_dot; alias it here until a SIMD version lands
+ #define ggml_vec_dot_ptq1_0_q8_0_generic ggml_vec_dot_ptq1_0_q8_0
++#define ggml_vec_dot_ptq1_sb_q8_0_generic ggml_vec_dot_ptq1_sb_q8_0
+ // quants.c
+ #define quantize_row_q8_K_generic quantize_row_q8_K
+ #define ggml_vec_dot_tq1_0_q8_K_generic ggml_vec_dot_tq1_0_q8_K
+@@ -240,6 +243,7 @@
+ #elif defined(__riscv)
+ // PTQ1_0 currently has only the generic vec_dot; alias it here until a SIMD version lands
+ #define ggml_vec_dot_ptq1_0_q8_0_generic ggml_vec_dot_ptq1_0_q8_0
++#define ggml_vec_dot_ptq1_sb_q8_0_generic ggml_vec_dot_ptq1_sb_q8_0
+ // quants.c
+ #define ggml_vec_dot_nvfp4_q8_0_generic ggml_vec_dot_nvfp4_q8_0
+ #define ggml_vec_dot_q2_0_q8_0_generic ggml_vec_dot_q2_0_q8_0
+@@ -291,6 +295,7 @@
+ #elif defined(__s390x__)
+ // PTQ1_0 currently has only the generic vec_dot; alias it here until a SIMD version lands
+ #define ggml_vec_dot_ptq1_0_q8_0_generic ggml_vec_dot_ptq1_0_q8_0
++#define ggml_vec_dot_ptq1_sb_q8_0_generic ggml_vec_dot_ptq1_sb_q8_0
+ // quants.c
+ #define quantize_row_q8_K_generic quantize_row_q8_K
+ #define ggml_vec_dot_nvfp4_q8_0_generic ggml_vec_dot_nvfp4_q8_0
+@@ -351,6 +356,7 @@
+ #elif defined(__wasm__)
+ // PTQ1_0 currently has only the generic vec_dot; alias it here until a SIMD version lands
+ #define ggml_vec_dot_ptq1_0_q8_0_generic ggml_vec_dot_ptq1_0_q8_0
++#define ggml_vec_dot_ptq1_sb_q8_0_generic ggml_vec_dot_ptq1_sb_q8_0
+ // quants.c
+ #define ggml_vec_dot_tq1_0_q8_K_generic ggml_vec_dot_tq1_0_q8_K
+ #define ggml_vec_dot_tq2_0_q8_K_generic ggml_vec_dot_tq2_0_q8_K
+diff --git a/ggml/src/ggml-cpu/arch/arm/quants.c b/ggml/src/ggml-cpu/arch/arm/quants.c
+index 40e814e..3d3c372 100644
+--- a/ggml/src/ggml-cpu/arch/arm/quants.c
++++ b/ggml/src/ggml-cpu/arch/arm/quants.c
+@@ -1680,6 +1680,114 @@ void ggml_vec_dot_ptq1_0_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const v
+ #endif
+ }
+ 
++#if defined(__ARM_NEON)
++static inline float ptq1_sb_dot32_neon(const uint8x8_t raw8, int r, const block_q8_0 * GGML_RESTRICT yb) {
++    static const uint8_t idx_lo[5][16] = {
++        {0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3},
++        {0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3},
++        {0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3},
++        {0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3},
++        {0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3},
++    };
++    static const uint8_t idx_hi[5][16] = {
++        {3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6},
++        {3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6},
++        {3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6},
++        {3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6},
++        {4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 7},
++    };
++    static const uint8_t pow_lo[5][16] = {
++        {1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1},
++        {3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3},
++        {9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9},
++        {27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27},
++        {81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81},
++    };
++    static const uint8_t pow_hi[5][16] = {
++        {3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3},
++        {9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9},
++        {27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27},
++        {81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81},
++        {1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1},
++    };
++    const uint8x16_t raw = vcombine_u8(raw8, vdup_n_u8(0));
++    const uint8x16_t q0 = vmulq_u8(vqtbl1q_u8(raw, vld1q_u8(idx_lo[r])), vld1q_u8(pow_lo[r]));
++    const uint8x16_t q1 = vmulq_u8(vqtbl1q_u8(raw, vld1q_u8(idx_hi[r])), vld1q_u8(pow_hi[r]));
++    const uint8x16_t th1 = vdupq_n_u8(86);
++    const uint8x16_t th2 = vdupq_n_u8(171);
++    const uint8x16_t mneg = vdupq_n_u8(0xFF);
++    const int8x16_t t0 = vreinterpretq_s8_u8(vsubq_u8(vsubq_u8(mneg, vcgeq_u8(q0, th1)), vcgeq_u8(q0, th2)));
++    const int8x16_t t1 = vreinterpretq_s8_u8(vsubq_u8(vsubq_u8(mneg, vcgeq_u8(q1, th1)), vcgeq_u8(q1, th2)));
++    const int8x16_t qy0 = vld1q_s8(yb->qs);
++    const int8x16_t qy1 = vld1q_s8(yb->qs + 16);
++#if defined(__ARM_FEATURE_DOTPROD)
++    int32x4_t acc = vdupq_n_s32(0);
++    acc = vdotq_s32(acc, t0, qy0);
++    acc = vdotq_s32(acc, t1, qy1);
++    const int sumi = vaddvq_s32(acc);
++#else
++    int16x8_t p16 = vmulq_s16(vmovl_s8(vget_low_s8(t0)), vmovl_s8(vget_low_s8(qy0)));
++    p16 = vmlal_s8(p16, vget_high_s8(t0), vget_high_s8(qy0));
++    p16 = vmlal_s8(p16, vget_low_s8(t1),  vget_low_s8(qy1));
++    p16 = vmlal_s8(p16, vget_high_s8(t1), vget_high_s8(qy1));
++    const int sumi = vaddlvq_s16(p16);
++#endif
++    return GGML_CPU_FP16_TO_FP32(yb->d) * (float) sumi;
++}
++#endif
++
++void ggml_vec_dot_ptq1_sb_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc) {
++#if defined(__ARM_NEON)
++    assert(nrc == 1);
++    assert(n % QK_PTQ1_SB == 0);
++    UNUSED(nrc);
++    UNUSED(bx);
++    UNUSED(by);
++    UNUSED(bs);
++
++    const int nb = n / QK_PTQ1_SB;
++    const block_ptq1_sb * GGML_RESTRICT x = vx;
++    const block_q8_0    * GGML_RESTRICT y = vy;
++    float sumf = 0.0f;
++
++    for (int i = 0; i < nb; ++i) {
++        const ggml_half dh = (ggml_half) ((uint16_t) x[i].d[0] | ((uint16_t) x[i].d[1] << 8));
++        const float d0 = GGML_CPU_FP16_TO_FP32(dh);
++        int r = 0;
++        for (int sb = 0; sb < 8; ++sb) {
++            const uint8_t nib = (x[i].scales[sb >> 1] >> (4 * (sb & 1))) & 0xF;
++            const float sb_scale = nib == 0
++                ? (0.35f * d0)
++                : ((0.60f + ((float) (nib - 1) / 14.0f) * 0.40f) * d0);
++            float sum_sb = 0.0f;
++            for (int k = 0; k < 4; ++k) {
++                const int idx32 = sb * 4 + k;
++                const int b0 = (idx32 * 32) / 5;
++                uint8x8_t raw8;
++                if (idx32 < 31) {
++                    raw8 = vld1_u8(x[i].qs + b0);
++                } else {
++                    const uint8_t tail[8] = {
++                        x[i].qs[198], x[i].qs[199], x[i].qs[200], x[i].qs[201],
++                        x[i].qs[202], x[i].qs[203], x[i].qs[204], 0
++                    };
++                    raw8 = vld1_u8(tail);
++                }
++                sum_sb += ptq1_sb_dot32_neon(raw8, r, &y[i * 32 + idx32]);
++                r += 2;
++                if (r >= 5) {
++                    r -= 5;
++                }
++            }
++            sumf += sb_scale * sum_sb;
++        }
++    }
++    *s = sumf;
++#else
++    ggml_vec_dot_ptq1_sb_q8_0_generic(n, s, bs, vx, bx, vy, by, nrc);
++#endif
++}
++
+ void ggml_vec_dot_tq1_0_q8_K(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc) {
+     assert(nrc == 1);
+     UNUSED(nrc);
+diff --git a/ggml/src/ggml-cpu/arch/x86/quants.c b/ggml/src/ggml-cpu/arch/x86/quants.c
+index 2ab5833..83fd453 100644
+--- a/ggml/src/ggml-cpu/arch/x86/quants.c
++++ b/ggml/src/ggml-cpu/arch/x86/quants.c
+@@ -810,6 +810,98 @@ void ggml_vec_dot_ptq1_0_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const v
+ #endif
+ }
+ 
++#if defined(__AVX2__)
++static inline float ptq1_sb_dot32_avx2(const void * raw8_ptr, int r, const block_q8_0 * GGML_RESTRICT yb) {
++    static const uint8_t idx_32[5][32] = {
++        {0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6},
++        {0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6},
++        {0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6},
++        {0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6},
++        {0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 7},
++    };
++    static const uint8_t pow_32[5][32] = {
++        {1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3},
++        {3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9},
++        {9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27},
++        {27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81},
++        {81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1, 3, 9, 27, 81, 1},
++    };
++    const __m256i raw_dup = _mm256_broadcastsi128_si256(_mm_loadl_epi64((const __m128i *) raw8_ptr));
++    const __m256i b = _mm256_shuffle_epi8(raw_dup, _mm256_loadu_si256((const __m256i *) idx_32[r]));
++    const __m256i p = _mm256_loadu_si256((const __m256i *) pow_32[r]);
++    const __m256i mask_lo = _mm256_set1_epi16(0x00FF);
++    const __m256i q_even = _mm256_and_si256(
++        _mm256_mullo_epi16(_mm256_and_si256(b, mask_lo), _mm256_and_si256(p, mask_lo)),
++        mask_lo);
++    const __m256i q_odd = _mm256_slli_epi16(
++        _mm256_mullo_epi16(_mm256_srli_epi16(b, 8), _mm256_srli_epi16(p, 8)),
++        8);
++    const __m256i q = _mm256_or_si256(q_even, q_odd);
++    const __m256i signbit = _mm256_set1_epi8((char) 0x80);
++    const __m256i qx = _mm256_xor_si256(q, signbit);
++    const __m256i m1 = _mm256_cmpgt_epi8(qx, _mm256_set1_epi8((char) (85 ^ 0x80)));
++    const __m256i m2 = _mm256_cmpgt_epi8(qx, _mm256_set1_epi8((char) (170 ^ 0x80)));
++    const __m256i trits = _mm256_sub_epi8(_mm256_sub_epi8(_mm256_set1_epi8(-1), m1), m2);
++
++    const __m256i qy = _mm256_loadu_si256((const __m256i *) yb->qs);
++    const __m256i ax = _mm256_sign_epi8(trits, trits);
++    const __m256i sy = _mm256_sign_epi8(qy, trits);
++    const __m256i dot16 = _mm256_maddubs_epi16(ax, sy);
++    const __m256i dot32 = _mm256_madd_epi16(dot16, _mm256_set1_epi16(1));
++    return GGML_CPU_FP16_TO_FP32(yb->d) * (float) hsum_i32_8(dot32);
++}
++#endif
++
++void ggml_vec_dot_ptq1_sb_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc) {
++#if defined(__AVX2__)
++    assert(nrc == 1);
++    assert(n % QK_PTQ1_SB == 0);
++    UNUSED(nrc);
++    UNUSED(bx);
++    UNUSED(by);
++    UNUSED(bs);
++
++    const int nb = n / QK_PTQ1_SB;
++    const block_ptq1_sb * GGML_RESTRICT x = vx;
++    const block_q8_0    * GGML_RESTRICT y = vy;
++    float sumf = 0.0f;
++
++    for (int i = 0; i < nb; ++i) {
++        const ggml_half dh = (ggml_half) ((uint16_t) x[i].d[0] | ((uint16_t) x[i].d[1] << 8));
++        const float d0 = GGML_CPU_FP16_TO_FP32(dh);
++        int r = 0;
++        for (int sb = 0; sb < 8; ++sb) {
++            const uint8_t nib = (x[i].scales[sb >> 1] >> (4 * (sb & 1))) & 0xF;
++            const float sb_scale = nib == 0
++                ? (0.35f * d0)
++                : ((0.60f + ((float) (nib - 1) / 14.0f) * 0.40f) * d0);
++            float sum_sb = 0.0f;
++            for (int k = 0; k < 4; ++k) {
++                const int idx32 = sb * 4 + k;
++                const int b0 = (idx32 * 32) / 5;
++                if (idx32 < 31) {
++                    sum_sb += ptq1_sb_dot32_avx2(x[i].qs + b0, r, &y[i * 32 + idx32]);
++                } else {
++                    const uint8_t tail[8] = {
++                        x[i].qs[198], x[i].qs[199], x[i].qs[200], x[i].qs[201],
++                        x[i].qs[202], x[i].qs[203], x[i].qs[204], 0
++                    };
++                    sum_sb += ptq1_sb_dot32_avx2(tail, r, &y[i * 32 + idx32]);
++                }
++                r += 2;
++                if (r >= 5) {
++                    r -= 5;
++                }
++            }
++            sumf += sb_scale * sum_sb;
++        }
++    }
++    *s = sumf;
++#else
++    ggml_vec_dot_ptq1_sb_q8_0_generic(n, s, bs, vx, bx, vy, by, nrc);
++#endif
++}
++
+ void ggml_vec_dot_pq2_0_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc) {
+     const int qk = QK_PQ2_0;
+     const int nb = n / qk;
+diff --git a/ggml/src/ggml-cpu/ggml-cpu.c b/ggml/src/ggml-cpu/ggml-cpu.c
+index 5978749..bd300c8 100644
+--- a/ggml/src/ggml-cpu/ggml-cpu.c
++++ b/ggml/src/ggml-cpu/ggml-cpu.c
+@@ -254,6 +254,12 @@ static const struct ggml_type_traits_cpu type_traits_cpu[GGML_TYPE_COUNT] = {
+         .nrows                    = 1,
+ #endif
+     },
++    [GGML_TYPE_PTQ1_SB] = {
++        .from_float               = quantize_row_ptq1_sb,
++        .vec_dot                  = ggml_vec_dot_ptq1_sb_q8_0,
++        .vec_dot_type             = GGML_TYPE_Q8_0,
++        .nrows                    = 1,
++    },
+     [GGML_TYPE_Q4_0] = {
+         .from_float               = quantize_row_q4_0,
+         .vec_dot                  = ggml_vec_dot_q4_0_q8_0,
+diff --git a/ggml/src/ggml-cpu/ops.cpp b/ggml/src/ggml-cpu/ops.cpp
+index 24e4d1c..d9f0d7d 100644
+--- a/ggml/src/ggml-cpu/ops.cpp
++++ b/ggml/src/ggml-cpu/ops.cpp
+@@ -668,6 +668,7 @@ void ggml_compute_forward_add(
+         case GGML_TYPE_Q2_0:
+         case GGML_TYPE_PQ2_0:
+         case GGML_TYPE_PTQ1_0:
++        case GGML_TYPE_PTQ1_SB:
+         case GGML_TYPE_Q4_0:
+         case GGML_TYPE_Q4_1:
+         case GGML_TYPE_Q5_0:
+@@ -1126,6 +1127,7 @@ void ggml_compute_forward_add1(
+         case GGML_TYPE_Q2_0:
+         case GGML_TYPE_PQ2_0:
+         case GGML_TYPE_PTQ1_0:
++        case GGML_TYPE_PTQ1_SB:
+         case GGML_TYPE_Q4_0:
+         case GGML_TYPE_Q4_1:
+         case GGML_TYPE_Q5_0:
+@@ -1259,6 +1261,7 @@ void ggml_compute_forward_acc(
+         case GGML_TYPE_Q2_0:
+         case GGML_TYPE_PQ2_0:
+         case GGML_TYPE_PTQ1_0:
++        case GGML_TYPE_PTQ1_SB:
+         case GGML_TYPE_Q4_0:
+         case GGML_TYPE_Q4_1:
+         case GGML_TYPE_Q5_0:
+@@ -4932,6 +4935,7 @@ void ggml_compute_forward_out_prod(
+         case GGML_TYPE_Q2_0:
+         case GGML_TYPE_PQ2_0:
+         case GGML_TYPE_PTQ1_0:
++        case GGML_TYPE_PTQ1_SB:
+         case GGML_TYPE_Q4_0:
+         case GGML_TYPE_Q4_1:
+         case GGML_TYPE_Q5_0:
+@@ -5252,6 +5256,7 @@ void ggml_compute_forward_set(
+         case GGML_TYPE_Q2_0:
+         case GGML_TYPE_PQ2_0:
+         case GGML_TYPE_PTQ1_0:
++        case GGML_TYPE_PTQ1_SB:
+         case GGML_TYPE_Q4_0:
+         case GGML_TYPE_Q4_1:
+         case GGML_TYPE_Q5_0:
+@@ -5494,6 +5499,7 @@ void ggml_compute_forward_get_rows(
+         case GGML_TYPE_Q2_0:
+         case GGML_TYPE_PQ2_0:
+         case GGML_TYPE_PTQ1_0:
++        case GGML_TYPE_PTQ1_SB:
+         case GGML_TYPE_Q4_0:
+         case GGML_TYPE_Q4_1:
+         case GGML_TYPE_Q5_0:
+@@ -6256,6 +6262,7 @@ void ggml_compute_forward_clamp(
+         case GGML_TYPE_Q2_0:
+         case GGML_TYPE_PQ2_0:
+         case GGML_TYPE_PTQ1_0:
++        case GGML_TYPE_PTQ1_SB:
+         case GGML_TYPE_Q4_0:
+         case GGML_TYPE_Q4_1:
+         case GGML_TYPE_Q5_0:
+diff --git a/ggml/src/ggml-cpu/quants.c b/ggml/src/ggml-cpu/quants.c
+index e8a3067..0cae2c2 100644
+--- a/ggml/src/ggml-cpu/quants.c
++++ b/ggml/src/ggml-cpu/quants.c
+@@ -38,6 +38,10 @@ void quantize_row_ptq1_0(const float * GGML_RESTRICT x, void * GGML_RESTRICT y,
+     quantize_row_ptq1_0_ref(x, y, k);
+ }
+ 
++void quantize_row_ptq1_sb(const float * GGML_RESTRICT x, void * GGML_RESTRICT y, int64_t k) {
++    quantize_row_ptq1_sb_ref(x, y, k);
++}
++
+ void quantize_row_q4_0(const float * GGML_RESTRICT x, void * GGML_RESTRICT y, int64_t k) {
+     quantize_row_q4_0_ref(x, y, k);
+ }
+@@ -346,6 +350,61 @@ void ggml_vec_dot_ptq1_0_q8_0_generic(int n, float * GGML_RESTRICT s, size_t bs,
+     *s = sumf;
+ }
+ 
++void ggml_vec_dot_ptq1_sb_q8_0_generic(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc) {
++    assert(nrc == 1);
++    UNUSED(nrc);
++    UNUSED(bx);
++    UNUSED(by);
++    UNUSED(bs);
++
++    const int qk = QK_PTQ1_SB;
++    assert(n % qk == 0);
++    const int nb = n / qk;
++
++    const block_ptq1_sb * GGML_RESTRICT x = vx;
++    const block_q8_0    * GGML_RESTRICT y = vy;
++
++    const uint8_t pow3[5] = {1, 3, 9, 27, 81};
++    float sumf = 0.0f;
++
++    for (int i = 0; i < nb; ++i) {
++        const ggml_half dh = (ggml_half) ((uint16_t) x[i].d[0] | ((uint16_t) x[i].d[1] << 8));
++        const float d0 = GGML_CPU_FP16_TO_FP32(dh);
++
++        int8_t trits[QK_PTQ1_SB];
++        for (int bi = 0; bi < 205; ++bi) {
++            const uint8_t b = x[i].qs[bi];
++            const int cnt = (bi == 204) ? 4 : 5;
++            for (int r = 0; r < cnt; ++r) {
++                const uint8_t q = b * pow3[r];
++                trits[bi * 5 + r] = (int8_t) ((((uint16_t) q * 3) >> 8) - 1);
++            }
++        }
++
++        for (int sb = 0; sb < 8; ++sb) {
++            const uint8_t nib = (x[i].scales[sb >> 1] >> (4 * (sb & 1))) & 0xF;
++            const float sb_scale = nib == 0
++                ? (0.35f * d0)
++                : ((0.60f + ((float) (nib - 1) / 14.0f) * 0.40f) * d0);
++
++            float sumi = 0.0f;
++            for (int k = 0; k < 4; ++k) {
++                const block_q8_0 * GGML_RESTRICT yb = &y[i * 32 + sb * 4 + k];
++                const float d1 = GGML_CPU_FP16_TO_FP32(yb->d);
++                int sumi_block = 0;
++                const int base = sb * 128 + k * 32;
++                for (int j = 0; j < 32; ++j) {
++                    sumi_block += (int) trits[base + j] * (int) yb->qs[j];
++                }
++                sumi += d1 * (float) sumi_block;
++            }
++            sumf += sb_scale * sumi;
++        }
++    }
++
++    *s = sumf;
++}
++
+ void ggml_vec_dot_q4_0_q8_0_generic(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc) {
+     const int qk = QK8_0;
+     const int nb = n / qk;
+diff --git a/ggml/src/ggml-cpu/quants.h b/ggml/src/ggml-cpu/quants.h
+index 2981ec9..97609d8 100644
+--- a/ggml/src/ggml-cpu/quants.h
++++ b/ggml/src/ggml-cpu/quants.h
+@@ -16,6 +16,7 @@ void quantize_row_q1_0(const float * GGML_RESTRICT x, void * GGML_RESTRICT y, in
+ void quantize_row_q2_0(const float * GGML_RESTRICT x, void * GGML_RESTRICT y, int64_t k);
+ void quantize_row_pq2_0(const float * GGML_RESTRICT x, void * GGML_RESTRICT y, int64_t k);
+ void quantize_row_ptq1_0(const float * GGML_RESTRICT x, void * GGML_RESTRICT y, int64_t k);
++void quantize_row_ptq1_sb(const float * GGML_RESTRICT x, void * GGML_RESTRICT y, int64_t k);
+ void quantize_row_q4_0(const float * GGML_RESTRICT x, void * GGML_RESTRICT y, int64_t k);
+ void quantize_row_q4_1(const float * GGML_RESTRICT x, void * GGML_RESTRICT y, int64_t k);
+ void quantize_row_q5_0(const float * GGML_RESTRICT x, void * GGML_RESTRICT y, int64_t k);
+@@ -45,6 +46,7 @@ void ggml_vec_dot_q2_0_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const voi
+ void ggml_vec_dot_pq2_0_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
+ void ggml_vec_dot_pq2_0_q8_K(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
+ void ggml_vec_dot_ptq1_0_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
++void ggml_vec_dot_ptq1_sb_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
+ void ggml_vec_dot_q4_0_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
+ void ggml_vec_dot_q4_1_q8_1(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
+ void ggml_vec_dot_q5_0_q8_0(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
+@@ -81,6 +83,7 @@ void ggml_vec_dot_q1_0_q8_0_generic(int n, float * GGML_RESTRICT s, size_t bs, c
+ void ggml_vec_dot_pq2_0_q8_0_generic(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
+ void ggml_vec_dot_pq2_0_q8_K_generic(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
+ void ggml_vec_dot_ptq1_0_q8_0_generic(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
++void ggml_vec_dot_ptq1_sb_q8_0_generic(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
+ void ggml_vec_dot_q2_0_q8_0_generic(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
+ void ggml_vec_dot_q4_0_q8_0_generic(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
+ void ggml_vec_dot_q4_1_q8_1_generic(int n, float * GGML_RESTRICT s, size_t bs, const void * GGML_RESTRICT vx, size_t bx, const void * GGML_RESTRICT vy, size_t by, int nrc);
+diff --git a/ggml/src/ggml-cuda/common.cuh b/ggml/src/ggml-cuda/common.cuh
+index aac4b7b..af3f153 100644
+--- a/ggml/src/ggml-cuda/common.cuh
++++ b/ggml/src/ggml-cuda/common.cuh
+@@ -1061,6 +1061,31 @@ struct ggml_cuda_type_traits<GGML_TYPE_PTQ1_0> {
+     static constexpr int qi = QI_PTQ1_0;
+ };
+ 
++static __device__ __forceinline__ float ptq1_sb_sub_scale(const block_ptq1_sb * x, const int sb) {
++    const uint16_t d_bits = (uint16_t) x->d[0] | ((uint16_t) x->d[1] << 8);
++    const float    d      = __half2float(__ushort_as_half((unsigned short) d_bits));
++    const uint8_t  q      = (x->scales[sb >> 1] >> (4 * (sb & 1))) & 0xF;
++    if (q == 0) {
++        return 0.35f * d;
++    }
++    return (0.60f + ((float) (q - 1) / 14.0f) * 0.40f) * d;
++}
++
++static __device__ __forceinline__ int ptq1_sb_trit(const block_ptq1_sb * x, const int e) {
++    static constexpr uint8_t pow3[5] = { 1, 3, 9, 27, 81 };
++    const uint8_t b = x->qs[e / 5];
++    const uint8_t q = (uint8_t) (b * pow3[e % 5]);
++    return (int) (((uint16_t) q * 3u) >> 8) - 1;
++}
++
++template<>
++struct ggml_cuda_type_traits<GGML_TYPE_PTQ1_SB> {
++    static constexpr int qk = QK_PTQ1_SB;
++    static constexpr int qr = QR_PTQ1_SB;
++    static constexpr int qi = QI_PTQ1_SB;
++    static constexpr int bs = sizeof(block_ptq1_sb);
++};
++
+ // Activation (src1) q8_1 layouts produced by quantize_row_q8_1_cuda and consumed by the MMVQ kernels.
+ // Every layout keeps block_q8_1's bytes per row, so launcher strides in block_q8_1 units are valid
+ // for all three; only the byte order inside a column differs.
+@@ -1070,6 +1095,7 @@ enum ggml_cuda_q8_1_layout : int {
+     GGML_CUDA_Q8_1_PT       = 2, // PTQ1_0, 2-8 columns or MoE ids: planar-transposed (mmvq-ptq1_0.cuh)
+     GGML_CUDA_Q8_1_PQ2      = 3, // PQ2_0, 3-8 columns, plain 2D, Ada: permuted qs plus half2 (d, int sum) per block (mmvq-pq2_0.cuh)
+     GGML_CUDA_Q8_1_Q1B      = 4, // Q1_0, one column: per 32-block, word j = elements j, 8+j, 16+j, 24+j (bit-serial dot), then half2 (d, exact int sum) per block
++    GGML_CUDA_Q8_1_SB       = 5, // PTQ1_SB, plain 2D (decode & tiled prefill): per 1024-elem block (1152 B = 72 uint4), [0..511]=q[0..15]x32, [512..1023]=q[16..31]x32, [1024..1151]=32x half2(d, isum)
+ };
+ 
+ // Column-count helper, not the layout decision. 2-8 columns and MoE (ids) take the planar
+@@ -1352,6 +1378,14 @@ static inline bool ggml_cuda_pq2_multicol(int ncols_dst) {
+ }
+ 
+ static inline ggml_cuda_q8_1_layout ggml_cuda_q8_1_layout_host(ggml_type type_src0, int ncols_dst, bool has_ids, bool plain_2d = true) {
++#if !defined(GGML_USE_HIP) && !defined(GGML_USE_MUSA)
++    if (type_src0 == GGML_TYPE_PTQ1_SB && !has_ids && plain_2d && ncols_dst >= 1) {
++        const int cc_sb = ggml_cuda_info().devices[ggml_cuda_get_device()].cc;
++        if (ncols_dst <= 16 || (cc_sb < GGML_CUDA_CC_VOLTA && ncols_dst <= 512)) {
++            return GGML_CUDA_Q8_1_SB;
++        }
++    }
++#endif
+     if (type_src0 == GGML_TYPE_PQ2_0 && plain_2d && !has_ids && ggml_cuda_pq2_multicol(ncols_dst)) {
+         return GGML_CUDA_Q8_1_PQ2;
+     }
+diff --git a/ggml/src/ggml-cuda/convert.cu b/ggml/src/ggml-cuda/convert.cu
+index 7f3ae05..ee6ac7c 100644
+--- a/ggml/src/ggml-cuda/convert.cu
++++ b/ggml/src/ggml-cuda/convert.cu
+@@ -588,6 +588,8 @@ to_bf16_cuda_t ggml_get_to_bf16_cuda(ggml_type type) {
+ #else
+             return dequantize_block_cont_cuda<QK_PTQ1_0, QR_PTQ1_0, dequantize_ptq1_0>;
+ #endif
++        case GGML_TYPE_PTQ1_SB:
++            return dequantize_block_cont_cuda<QK_PTQ1_SB, QR_PTQ1_SB, dequantize_ptq1_sb>;
+         case GGML_TYPE_Q4_0:
+             return dequantize_row_q4_0_cuda;
+         case GGML_TYPE_Q4_1:
+@@ -653,6 +655,8 @@ to_fp16_cuda_t ggml_get_to_fp16_cuda(ggml_type type) {
+ #else
+             return dequantize_block_cont_cuda<QK_PTQ1_0, QR_PTQ1_0, dequantize_ptq1_0>;
+ #endif
++        case GGML_TYPE_PTQ1_SB:
++            return dequantize_block_cont_cuda<QK_PTQ1_SB, QR_PTQ1_SB, dequantize_ptq1_sb>;
+         case GGML_TYPE_Q4_0:
+             return dequantize_row_q4_0_cuda;
+         case GGML_TYPE_Q4_1:
+@@ -721,6 +725,8 @@ to_fp32_cuda_t ggml_get_to_fp32_cuda(ggml_type type) {
+ #else
+             return dequantize_block_cont_cuda<QK_PTQ1_0, QR_PTQ1_0, dequantize_ptq1_0>;
+ #endif
++        case GGML_TYPE_PTQ1_SB:
++            return dequantize_block_cont_cuda<QK_PTQ1_SB, QR_PTQ1_SB, dequantize_ptq1_sb>;
+         case GGML_TYPE_Q4_0:
+             return dequantize_row_q4_0_cuda;
+         case GGML_TYPE_Q4_1:
+@@ -784,6 +790,8 @@ to_fp16_nc_cuda_t ggml_get_to_fp16_nc_cuda(ggml_type type) {
+             return dequantize_block_cuda<QK_PQ2_0, QR_PQ2_0, dequantize_pq2_0>;
+         case GGML_TYPE_PTQ1_0:
+             return dequantize_block_cuda<QK_PTQ1_0, QR_PTQ1_0, dequantize_ptq1_0>;
++        case GGML_TYPE_PTQ1_SB:
++            return dequantize_block_cuda<QK_PTQ1_SB, QR_PTQ1_SB, dequantize_ptq1_sb>;
+         case GGML_TYPE_Q4_0:
+             return dequantize_block_cuda<QK4_0, QR4_0, dequantize_q4_0>;
+         case GGML_TYPE_Q4_1:
+@@ -813,6 +821,8 @@ to_bf16_nc_cuda_t ggml_get_to_bf16_nc_cuda(ggml_type type) {
+             return dequantize_block_cuda<QK_PQ2_0, QR_PQ2_0, dequantize_pq2_0>;
+         case GGML_TYPE_PTQ1_0:
+             return dequantize_block_cuda<QK_PTQ1_0, QR_PTQ1_0, dequantize_ptq1_0>;
++        case GGML_TYPE_PTQ1_SB:
++            return dequantize_block_cuda<QK_PTQ1_SB, QR_PTQ1_SB, dequantize_ptq1_sb>;
+         case GGML_TYPE_Q4_0:
+             return dequantize_block_cuda<QK4_0, QR4_0, dequantize_q4_0>;
+         case GGML_TYPE_Q4_1:
+@@ -842,6 +852,8 @@ to_fp32_nc_cuda_t ggml_get_to_fp32_nc_cuda(ggml_type type) {
+             return dequantize_block_cuda<QK_PQ2_0, QR_PQ2_0, dequantize_pq2_0>;
+         case GGML_TYPE_PTQ1_0:
+             return dequantize_block_cuda<QK_PTQ1_0, QR_PTQ1_0, dequantize_ptq1_0>;
++        case GGML_TYPE_PTQ1_SB:
++            return dequantize_block_cuda<QK_PTQ1_SB, QR_PTQ1_SB, dequantize_ptq1_sb>;
+         case GGML_TYPE_Q4_0:
+             return dequantize_block_cuda<QK4_0, QR4_0, dequantize_q4_0>;
+         case GGML_TYPE_Q4_1:
+diff --git a/ggml/src/ggml-cuda/dequantize.cuh b/ggml/src/ggml-cuda/dequantize.cuh
+index 7a1deec..bde4ce8 100644
+--- a/ggml/src/ggml-cuda/dequantize.cuh
++++ b/ggml/src/ggml-cuda/dequantize.cuh
+@@ -53,6 +53,16 @@ static __device__ __forceinline__ void dequantize_ptq1_0(const void * vx, const
+     v.y = ptq1_0_trit(&x[ib], iqs + 1) * d;
+ }
+ 
++static __device__ __forceinline__ void dequantize_ptq1_sb(const void * vx, const int64_t ib, const int iqs, float2 & v){
++    const block_ptq1_sb * x = (const block_ptq1_sb *) vx + ib;
++
++    const float d0 = ptq1_sb_sub_scale(x, (iqs + 0) >> 7);
++    const float d1 = ptq1_sb_sub_scale(x, (iqs + 1) >> 7);
++
++    v.x = ptq1_sb_trit(x, iqs + 0) * d0;
++    v.y = ptq1_sb_trit(x, iqs + 1) * d1;
++}
++
+ static __device__ __forceinline__ void dequantize_pq2_0(const void * vx, const int64_t ib, const int iqs, float2 & v){
+     const block_pq2_0 * x = (const block_pq2_0 *) vx;
+ 
+diff --git a/ggml/src/ggml-cuda/getrows.cu b/ggml/src/ggml-cuda/getrows.cu
+index 08617d9..250f402 100644
+--- a/ggml/src/ggml-cuda/getrows.cu
++++ b/ggml/src/ggml-cuda/getrows.cu
+@@ -328,6 +328,10 @@ static void ggml_cuda_get_rows_switch_src0_type(
+             get_rows_cuda_q<QK_PTQ1_0, QR_PTQ1_0, dequantize_ptq1_0>(src0_d, src1_d, dst_d,
+                 ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
+             break;
++        case GGML_TYPE_PTQ1_SB:
++            get_rows_cuda_q<QK_PTQ1_SB, QR_PTQ1_SB, dequantize_ptq1_sb>(src0_d, src1_d, dst_d,
++                ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
++            break;
+         case GGML_TYPE_Q2_0:
+             get_rows_cuda_q<QK2_0, QR2_0, dequantize_q2_0>(src0_d, src1_d, dst_d,
+                 ne00, nb01, nb02, nb03, ne10, ne11, ne12, nb10, nb11, nb12, nb1, nb2, nb3, stream);
+diff --git a/ggml/src/ggml-cuda/ggml-cuda.cu b/ggml/src/ggml-cuda/ggml-cuda.cu
+index d2350d9..36a0956 100644
+--- a/ggml/src/ggml-cuda/ggml-cuda.cu
++++ b/ggml/src/ggml-cuda/ggml-cuda.cu
+@@ -1880,7 +1880,10 @@ static bool ggml_cuda_should_fuse_mul_mat_vec_f(const ggml_tensor * tensor) {
+     return use_mul_mat_vec_f;
+ }
+ 
+-static bool ggml_cuda_should_fuse_mul_mat_vec_q(const ggml_tensor * tensor) {
++static bool ggml_cuda_should_fuse_mul_mat_vec_q(const ggml_tensor * tensor,
++                                                 const ggml_tensor * bias0 = nullptr,
++                                                 const ggml_tensor * bias1 = nullptr,
++                                                 const ggml_tensor * out   = nullptr) {
+     ggml_tensor *       src0 = tensor->src[0];
+     ggml_tensor *       src1 = tensor->src[1];
+     const ggml_tensor * dst  = tensor;
+@@ -1897,8 +1900,16 @@ static bool ggml_cuda_should_fuse_mul_mat_vec_q(const ggml_tensor * tensor) {
+     if (cc <= GGML_CUDA_CC_PASCAL) {
+         return false;
+     }
+-    //we only support fusion for ncols_dst = 1
+-    if (tensor->op == GGML_OP_MUL_MAT && dst->ne[1] != 1) {
++    const bool bias_mc_ok = (dst->ne[1] == 1) ||
++                            ((!bias0 || (out && ggml_is_contiguous(bias0) && bias0->nb[1] == out->nb[1])) &&
++                             (!bias1 || (out && ggml_is_contiguous(bias1) && bias1->nb[1] == out->nb[1])));
++    const bool ptq1_sb_mc = src0->type == GGML_TYPE_PTQ1_SB && tensor->op == GGML_OP_MUL_MAT &&
++                            dst->ne[1] >= 1 && dst->ne[1] <= 8 &&
++                            src0->ne[2] == 1 && dst->ne[2] == 1 && src0->ne[3] == 1 && dst->ne[3] == 1 &&
++                            src0->ne[0] % QK_PTQ1_SB == 0 && ggml_is_contiguous(src0) && ggml_is_contiguous(dst) &&
++                            bias_mc_ok;
++    //we only support fusion for ncols_dst = 1 (plus PTQ1_SB multi-column up to 8)
++    if (tensor->op == GGML_OP_MUL_MAT && dst->ne[1] != 1 && !ptq1_sb_mc) {
+         return false;
+     }
+ 
+@@ -2184,6 +2195,10 @@ static void ggml_cuda_mul_mat(ggml_backend_cuda_context & ctx, const ggml_tensor
+         // handled by the opt-in Hopper wgmma path (returns false to fall through when unsupported)
+         return;
+     }
++    if (src0->type == GGML_TYPE_PTQ1_SB && cc < GGML_CUDA_CC_VOLTA && ne11 > 16 && ne11 <= 512 &&
++            ggml_cuda_mul_mat_ptq1_sb_tiled(ctx, src0, src1, dst)) {
++        return;
++    }
+     if (ggml_cuda_should_use_mmq(src0->type, cc, ne11, /*n_experts =*/ 0)) {
+         ggml_cuda_mul_mat_q(ctx, src0, src1, nullptr, dst);
+         return;
+@@ -3169,13 +3184,22 @@ static bool ggml_cuda_fwht_q8_find_uses(const ggml_cgraph * cgraph, const int i_
+                 continue;
+             }
+             const ggml_type ct = t->src[0] ? t->src[0]->type : GGML_TYPE_COUNT;
+-            const bool type_ok = ct == GGML_TYPE_PTQ1_0 || (accept_pq2 && ct == GGML_TYPE_PQ2_0);
++#if !defined(GGML_USE_HIP) && !defined(GGML_USE_MUSA)
++            const int ptq1_sb_max_cols = (cc < GGML_CUDA_CC_VOLTA) ? 512 : 16;
++            const bool ptq1_sb_ok = ct == GGML_TYPE_PTQ1_SB &&
++                src->ne[0] % QK_PTQ1_SB == 0 && t->src[0]->ne[0] == src->ne[0] &&
++                t->src[0]->ne[2] == 1 && t->src[0]->ne[3] == 1 &&
++                ggml_is_contiguous(t->src[0]) && src->ne[1] >= 1 && src->ne[1] <= ptq1_sb_max_cols;
++#else
++            const bool ptq1_sb_ok = false;
++#endif
++            const bool type_ok = ct == GGML_TYPE_PTQ1_0 || ptq1_sb_ok || (accept_pq2 && ct == GGML_TYPE_PQ2_0);
+             if (t->op != GGML_OP_MUL_MAT || s != 1 || !type_ok || (wtype != GGML_TYPE_COUNT && ct != wtype) ||
+                     ggml_get_op_params_i32(t, 1) == GGML_HINT_SRC0_IS_HADAMARD ||
+                     t->type != GGML_TYPE_F32 || src->type != GGML_TYPE_F32 || !ggml_is_contiguous(src) ||
+                     src->ne[2] != 1 || src->ne[3] != 1 ||
+                     (K != 0 && (src->ne[0] != K || src->ne[1] != ncols)) ||
+-                    !ggml_cuda_should_use_mmvq(ct, cc, src->ne[1])) {
++                    (!ptq1_sb_ok && !ggml_cuda_should_use_mmvq(ct, cc, src->ne[1]))) {
+                 return false;
+             }
+             if (ct == GGML_TYPE_PQ2_0 && cc >= GGML_CUDA_CC_PASCAL && cc < GGML_CUDA_CC_VOLTA) {
+@@ -3296,19 +3320,21 @@ static int ggml_cuda_try_fwht_q8(ggml_backend_cuda_context & ctx, const ggml_cgr
+     if (K % n != 0 || !ggml_cuda_fwht_quantize_supported(n, K) || (signs && signs->ne[0] != K)) {
+         return 0;
+     }
+-    if (n > 2048 && !pq2_enabled) {
+-        return 0; // 4096-wide fused transforms go with the PQ2_0 switch
++    if (n > 2048 && !pq2_enabled && wtype != GGML_TYPE_PTQ1_SB) {
++        return 0; // 4096-wide fused transforms go with the PQ2_0 / PTQ1_SB switch
+     }
+ 
+     // same (type, ncols, ids) -> layout and padding as ggml_cuda_mul_mat_vec_q
+     layout     = ggml_cuda_q8_1_layout_host(wtype, (int) ncols, false);
+     if (layout != GGML_CUDA_Q8_1_AOS && layout != GGML_CUDA_Q8_1_PT && layout != GGML_CUDA_Q8_1_SOA_ISUM &&
+-            layout != GGML_CUDA_Q8_1_PQ2) {
++            layout != GGML_CUDA_Q8_1_PQ2 && layout != GGML_CUDA_Q8_1_SB) {
+         return 0;
+     }
+     ne0_padded = GGML_PAD(K, MATRIX_ROW_PADDING);
+     if (layout == GGML_CUDA_Q8_1_SOA_ISUM) {
+         ne0_padded = GGML_PAD(ne0_padded, GGML_CUDA_PTQ1_K_PAD);
++    } else if (layout == GGML_CUDA_Q8_1_SB) {
++        ne0_padded = GGML_PAD(ne0_padded, QK_PTQ1_SB);
+     }
+     if (ne0_padded % n != 0) {
+         return 0; // the fused quantizer writes pad blocks in transform-width units
+@@ -4954,15 +4980,14 @@ static bool ggml_cuda_hadamard_feeds_ptq1(const ggml_cgraph * cgraph, int i_mm)
+ struct ggml_cuda_norm_fwht_q8_plan {
+     ggml_cuda_fwht_q8_uses uses;
+     ggml_cuda_q8_1_layout  layout = GGML_CUDA_Q8_1_AOS;
++    bool                   out_aliases_in = false;
+ };
+ 
+ // srcs: the tensors the fused kernel reads (residual inputs or the norm input). The F32 output may exactly alias one of
+ // them (each block reads its row before writing it), but the q8_1 rows are packed: block r writes bytes that lie in
+-// earlier rows of the input, which other blocks may not have loaded yet. So with several rows any overlap keeps the F32
+-// output. A single row is safe: add_rms_norm_fwht_f32 runs one 1024-thread block per row, the norm needs the sum of
+-// squares of the whole row, so the block loads all of its input (a, b) before the block reduce's __syncthreads, and
+-// every q8_1 store comes after it. That holds with and without the add (the lookahead site) and for every Hadamard block
+-// width (only the butterfly depends on it). Decode thus keeps the q8_1 output when the allocator reuses an input buffer.
++// earlier rows of the input, which other blocks may not have loaded yet. With several rows and any overlap we stage the
++// q8_1 output into a held pool allocation instead of falling back to F32 + a separate quantize launch. A single row is
++// safe in-place: add_rms_norm_fwht_f32 runs one 1024-thread block per row and loads all of (a, b) before __syncthreads.
+ static bool ggml_cuda_norm_fwht_q8_prepare(const ggml_cgraph * cgraph, const int i_mm, const int64_t n,
+                                            const ggml_tensor * const * srcs, const int n_srcs,
+                                            ggml_cuda_norm_fwht_q8_plan & plan) {
+@@ -4977,32 +5002,44 @@ static bool ggml_cuda_norm_fwht_q8_prepare(const ggml_cgraph * cgraph, const int
+     const ggml_tensor * mm = cgraph->nodes[i_mm];
+     const char * m0 = (const char *) mm->data;
+     const char * m1 = m0 + ggml_nbytes(mm);
++    plan.out_aliases_in = false;
+     for (int k = 0; k < n_srcs && ggml_nelements(mm) > n; ++k) {
+         const char * s0 = (const char *) srcs[k]->data;
+         const char * s1 = s0 + ggml_nbytes(srcs[k]);
+         if (m0 < s1 && s0 < m1) {
+-            return false;
++            plan.out_aliases_in = true;
++            break;
+         }
+     }
+     ggml_cuda_fwht_q8_uses & u = plan.uses;
+-    if (!ggml_cuda_fwht_q8_find_uses(cgraph, i_mm, cc, true, u) || u.wtype != GGML_TYPE_PQ2_0 || u.K != n ||
++    if (!ggml_cuda_fwht_q8_find_uses(cgraph, i_mm, cc, true, u) ||
++            (u.wtype != GGML_TYPE_PQ2_0 && u.wtype != GGML_TYPE_PTQ1_SB) || u.K != n ||
+             u.K * u.ncols != ggml_nelements(mm) || GGML_PAD(u.K, MATRIX_ROW_PADDING) != u.K) {
+         return false;
+     }
+     plan.layout = ggml_cuda_q8_1_layout_host(u.wtype, (int) u.ncols, false);
+-    return plan.layout == GGML_CUDA_Q8_1_AOS || plan.layout == GGML_CUDA_Q8_1_PQ2;
++    return plan.layout == GGML_CUDA_Q8_1_AOS || plan.layout == GGML_CUDA_Q8_1_PQ2 ||
++           (plan.layout == GGML_CUDA_Q8_1_SB && u.K % QK_PTQ1_SB == 0);
+ }
+ 
+-static void ggml_cuda_norm_fwht_q8_register(ggml_backend_cuda_context & ctx, const ggml_tensor * mm,
+-                                            const ggml_cuda_norm_fwht_q8_plan & plan) {
++static void * ggml_cuda_norm_fwht_q8_alloc_and_register(ggml_backend_cuda_context & ctx, const ggml_tensor * mm,
++                                                        const ggml_cuda_norm_fwht_q8_plan & plan) {
++    void * out = mm->data;
++    if (plan.out_aliases_in) {
++        const size_t q8_bytes = (size_t) (plan.uses.ncols * plan.uses.K) * sizeof(block_q8_1) / QK8_1;
++        auto blk = std::make_unique<ggml_cuda_pool_alloc<char>>(ctx.pool(), q8_bytes);
++        out = blk->get();
++        ctx.fwht_q8().held.push_back(std::move(blk));
++    }
+     ggml_cuda_fwht_q8 e;
+     e.layout = plan.layout;
+     e.ne0    = plan.uses.K;
+     e.ncols  = plan.uses.ncols;
+-    e.data   = mm->data;
++    e.data   = out;
+     for (int a = 0; a < plan.uses.n_aliases; ++a) {
+         ctx.fwht_q8().set(plan.uses.aliases[a], e);
+     }
++    return out;
+ }
+ 
+ struct ggml_cuda_tail_verify_entry {
+@@ -5280,8 +5317,8 @@ static int ggml_cuda_try_fuse(ggml_backend_cuda_context * cuda_ctx, ggml_cgraph
+                 ggml_cuda_norm_fwht_q8_plan plan;
+                 const ggml_tensor * q8_srcs[2] = { a, b };
+                 if (ggml_cuda_norm_fwht_q8_prepare(cgraph, i + 5, ncols, q8_srcs, 2, plan)) {
+-                    ggml_cuda_op_add_rms_norm_fwht_fused(*cuda_ctx, node, rms_norm, weight, signs, nullptr, mm, mm->data, plan.layout);
+-                    ggml_cuda_norm_fwht_q8_register(*cuda_ctx, mm, plan);
++                    void * q8_out = ggml_cuda_norm_fwht_q8_alloc_and_register(*cuda_ctx, mm, plan);
++                    ggml_cuda_op_add_rms_norm_fwht_fused(*cuda_ctx, node, rms_norm, weight, signs, nullptr, mm, q8_out, plan.layout);
+                 } else {
+                     ggml_cuda_op_add_rms_norm_fwht_fused(*cuda_ctx, node, rms_norm, weight, signs, nullptr, mm);
+                 }
+@@ -5367,8 +5404,8 @@ static int ggml_cuda_try_fuse(ggml_backend_cuda_context * cuda_ctx, ggml_cgraph
+                 ggml_cuda_norm_fwht_q8_plan plan;
+                 const ggml_tensor * q8_srcs[1] = { x };
+                 if (ggml_cuda_norm_fwht_q8_prepare(cgraph, j + 2, ncols, q8_srcs, 1, plan)) {
+-                    ggml_cuda_op_add_rms_norm_fwht_fused(*cuda_ctx, nullptr, node, weight, signs, mul_w, mm, mm->data, plan.layout);
+-                    ggml_cuda_norm_fwht_q8_register(*cuda_ctx, mm, plan);
++                    void * q8_out = ggml_cuda_norm_fwht_q8_alloc_and_register(*cuda_ctx, mm, plan);
++                    ggml_cuda_op_add_rms_norm_fwht_fused(*cuda_ctx, nullptr, node, weight, signs, mul_w, mm, q8_out, plan.layout);
+                 } else {
+                     ggml_cuda_op_add_rms_norm_fwht_fused(*cuda_ctx, nullptr, node, weight, signs, mul_w, mm);
+                 }
+@@ -5880,7 +5917,7 @@ static int ggml_cuda_try_fuse(ggml_backend_cuda_context * cuda_ctx, ggml_cgraph
+                 fusion_data.glu_op     = ggml_get_glu_op(glu);
+                 fusion_data.glu_limit  = ggml_get_op_params_f32(glu, 3);
+ 
+-                if (ggml_cuda_should_fuse_mul_mat_vec_q(up_n)) {
++                if (ggml_cuda_should_fuse_mul_mat_vec_q(up_n, up_bias, gate_bias, glu)) {
+                     ggml_cuda_mul_mat_vec_q(*cuda_ctx, src0, src1, ids, cgraph->nodes[glu_idx], &fusion_data);
+                     fused_mul_mat_vec = true;
+                     fused_node_count  = n_ops;
+@@ -5974,7 +6011,7 @@ static int ggml_cuda_try_fuse(ggml_backend_cuda_context * cuda_ctx, ggml_cgraph
+                 fusion_data.glu_op     = ggml_get_glu_op(glu);
+                 fusion_data.glu_limit  = ggml_get_op_params_f32(glu, 3);
+ 
+-                if (ggml_cuda_should_fuse_mul_mat_vec_q(up_n)) {
++                if (ggml_cuda_should_fuse_mul_mat_vec_q(up_n, up_bias, gate_bias, glu)) {
+                     ggml_cuda_mul_mat_vec_q(*cuda_ctx, src0, src1, ids, cgraph->nodes[glu_idx], &fusion_data);
+                     fused_mul_mat_vec = true;
+                     fused_node_count  = n_ops;
+@@ -6037,7 +6074,7 @@ static int ggml_cuda_try_fuse(ggml_backend_cuda_context * cuda_ctx, ggml_cgraph
+                 break;
+             }
+ 
+-            if (ggml_cuda_should_fuse_mul_mat_vec_q(up_n)) {
++            if (ggml_cuda_should_fuse_mul_mat_vec_q(up_n, up_bias_tensor, gate_bias_tensor, glu)) {
+                 ggml_cuda_mm_fusion_args_host fusion_data{};
+                 fusion_data.gate      = gate_n->src[0];
+                 fusion_data.x_bias    = up_bias_tensor;
+@@ -6183,7 +6220,7 @@ static int ggml_cuda_try_fuse(ggml_backend_cuda_context * cuda_ctx, ggml_cgraph
+             fusion_data.x_bias  = bias;
+             fusion_data.x_scale = scale;
+ 
+-            if (ggml_cuda_should_fuse_mul_mat_vec_q(mm_node)) {
++            if (ggml_cuda_should_fuse_mul_mat_vec_q(mm_node, bias, nullptr, out_node)) {
+                 ggml_cuda_mul_mat_vec_q(*cuda_ctx, src0, src1, ids, out_node, &fusion_data);
+                 fused_mul_mat_vec = true;
+                 fused_node_count  = n_ops;
+@@ -6248,7 +6285,7 @@ static int ggml_cuda_try_fuse(ggml_backend_cuda_context * cuda_ctx, ggml_cgraph
+             break;
+         }
+ 
+-        if (ggml_cuda_should_fuse_mul_mat_vec_q(mm_node)) {
++        if (ggml_cuda_should_fuse_mul_mat_vec_q(mm_node, bias_tensor, nullptr, bias_node)) {
+             ggml_cuda_mul_mat_vec_q(*cuda_ctx, src0, src1, ids, bias_node, &fusion_data);
+             fused_mul_mat_vec = true;
+             fused_node_count  = 2;
+@@ -7658,6 +7695,7 @@ static bool ggml_backend_cuda_device_supports_op(ggml_backend_dev_t dev, const g
+                     case GGML_TYPE_Q2_0:
+                     case GGML_TYPE_PQ2_0:
+                     case GGML_TYPE_PTQ1_0:
++                    case GGML_TYPE_PTQ1_SB:
+                     case GGML_TYPE_Q4_0:
+                     case GGML_TYPE_Q4_1:
+                     case GGML_TYPE_Q5_0:
+@@ -7699,6 +7737,7 @@ static bool ggml_backend_cuda_device_supports_op(ggml_backend_dev_t dev, const g
+                     case GGML_TYPE_Q2_0:
+                     case GGML_TYPE_PQ2_0:
+                     case GGML_TYPE_PTQ1_0:
++                    case GGML_TYPE_PTQ1_SB:
+                     case GGML_TYPE_Q4_0:
+                     case GGML_TYPE_Q4_1:
+                     case GGML_TYPE_Q5_0:
+diff --git a/ggml/src/ggml-cuda/mmvq.cu b/ggml/src/ggml-cuda/mmvq.cu
+index 4121310..ff4670f 100644
+--- a/ggml/src/ggml-cuda/mmvq.cu
++++ b/ggml/src/ggml-cuda/mmvq.cu
+@@ -45,6 +45,7 @@ static constexpr __device__ vec_dot_q_cuda_t get_vec_dot_q_cuda(ggml_type type)
+         case GGML_TYPE_Q2_0:    return vec_dot_q2_0_q8_1;
+         case GGML_TYPE_PQ2_0: return vec_dot_pq2_0_q8_1;
+         case GGML_TYPE_PTQ1_0: return vec_dot_ptq1_0_q8_1;
++        case GGML_TYPE_PTQ1_SB: return vec_dot_ptq1_sb_q8_1;
+         case GGML_TYPE_Q4_0:    return vec_dot_q4_0_q8_1;
+         case GGML_TYPE_Q4_1:    return vec_dot_q4_1_q8_1;
+         case GGML_TYPE_Q5_0:    return vec_dot_q5_0_q8_1;
+@@ -76,6 +77,7 @@ static constexpr __host__ __device__ int get_vdr_mmvq(ggml_type type) {
+         case GGML_TYPE_Q2_0:    return VDR_Q2_0_Q8_1_MMVQ;
+         case GGML_TYPE_PQ2_0: return VDR_PQ2_0_Q8_1_MMVQ;
+         case GGML_TYPE_PTQ1_0: return VDR_PTQ1_0_Q8_1_MMVQ;
++        case GGML_TYPE_PTQ1_SB: return VDR_PTQ1_SB_Q8_1_MMVQ;
+         case GGML_TYPE_Q4_0:    return VDR_Q4_0_Q8_1_MMVQ;
+         case GGML_TYPE_Q4_1:    return VDR_Q4_1_Q8_1_MMVQ;
+         case GGML_TYPE_Q5_0:    return VDR_Q5_0_Q8_1_MMVQ;
+@@ -325,6 +327,11 @@ bool ggml_cuda_should_use_mmvq(enum ggml_type type, int cc, int64_t ne11) {
+     if (!ggml_is_quantized(type)) {
+         return false;
+     }
++#if !defined(GGML_USE_HIP) && !defined(GGML_USE_MUSA)
++    if (type == GGML_TYPE_PTQ1_SB) {
++        return ne11 <= 16;
++    }
++#endif
+ #if !defined(GGML_USE_HIP)
+     if (type == GGML_TYPE_PTQ1_0 && GGML_CUDA_CC_IS_NVIDIA(cc) && cc >= GGML_CUDA_CC_TURING) {
+         // The PT mat-vec path shares the weight decode across columns; with the branch-free PTQ1_0
+@@ -470,6 +477,10 @@ static constexpr __device__ int get_mmvq_mmid_max_batch_for_device() {
+ }
+ 
+ static constexpr __host__ __device__ int calc_nwarps(ggml_type type, int ncols_dst, mmvq_parameter_table_id table_id, bool small_k = false, bool halve_iters = false) {
++    if (type == GGML_TYPE_PTQ1_SB && table_id == MMVQ_PARAMETERS_GENERIC) {
++        // K=5120 has 5 PTQ1_SB blocks/row: 1 warp eliminates warp-tail idle, __syncthreads(), and cuts shared mem/CTA.
++        return 1;
++    }
+     if (ptq1_0_pt_enabled() && type == GGML_TYPE_PTQ1_0 && ncols_dst > 1 &&
+         (table_id == MMVQ_PARAMETERS_GENERIC || table_id == MMVQ_PARAMETERS_TURING)) {
+         // one K partition for every column count, so the fp32 sums of a column
+@@ -785,6 +796,10 @@ static __global__ void mul_mat_vec_q(
+     // partial sum for each thread
+     float tmp[ncols_dst][rows_per_cuda_block] = {{0.0f}};
+     float tmp_gate[ncols_dst][rows_per_cuda_block] = {{0.0f}};
++#if !defined(GGML_USE_HIP) && !defined(GGML_USE_MUSA)
++    __shared__ uint32_t sh_ptq1_sb_u32[type == GGML_TYPE_PTQ1_SB ? nwarps : 1][type == GGML_TYPE_PTQ1_SB ? 257 : 1];
++    GGML_UNUSED(sh_ptq1_sb_u32);
++#endif
+ 
+     const block_q8_1 * y = ((const block_q8_1 *) vy) + sample_y*stride_sample_y + channel_y*stride_channel_y;
+     const int kbx_offset = sample_x*stride_sample_x + channel_x*stride_channel_x + row0*stride_row_x;
+@@ -1103,6 +1118,79 @@ static __global__ void mul_mat_vec_q(
+                     }
+                 }
+             }
++        } else if constexpr (type == GGML_TYPE_PTQ1_SB) {
++            GGML_UNUSED(vec_dot_q_cuda);
++            int   u_act[ncols_dst][8];
++            float d8_act[ncols_dst];
++            int   sumu_act[ncols_dst];
++#    pragma unroll
++            for (int j = 0; j < ncols_dst; ++j) {
++                const block_q8_1 * bq8 = &y[j * stride_col_y + kby] + kqs;
++                d8_act[j] = __low2float(bq8->ds);
++                int su = 0;
++#    pragma unroll
++                for (int w = 0; w < 8; ++w) {
++                    const int u = get_int_b4(bq8->qs, w);
++                    u_act[j][w] = u;
++                    su = ggml_cuda_dp4a(0x01010101, u, su);
++                }
++                sumu_act[j] = su;
++            }
++
++            uint8_t * sh = (uint8_t *) sh_ptq1_sb_u32[threadIdx.y];
++            auto eval_sb = [&](const void * W_ptr, float out_acc[ncols_dst][rows_per_cuda_block]) {
++#    pragma unroll
++                for (int i = 0; i < rows_per_cuda_block; ++i) {
++                    if (rows_per_cuda_block == 1 || uint32_t(row0 + i) < nrows_dst) {
++                        const block_ptq1_sb * bq = (const block_ptq1_sb *) W_ptr + kbx_offset + i * stride_row_x + kbx;
++                        auto unpack_to_sh = [&](int m) {
++                            const uint32_t b = bq->qs[m];
++                            const uint32_t q01 = (b * 0x00030001u) & 0x00FF00FFu;
++                            const uint32_t t01 = ((q01 * 3u) >> 8) & 0x00030003u;
++                            const uint32_t q23 = (b * 0x001B0009u) & 0x00FF00FFu;
++                            const uint32_t t23 = ((q23 * 3u) >> 8) & 0x00030003u;
++                            const uint32_t t4  = (((b * 81u) & 0xFFu) * 3u) >> 8;
++                            uint8_t * dp = sh + 5 * m;
++                            dp[0] = (uint8_t) (t01);
++                            dp[1] = (uint8_t) (t01 >> 16);
++                            dp[2] = (uint8_t) (t23);
++                            dp[3] = (uint8_t) (t23 >> 16);
++                            dp[4] = (uint8_t) (t4);
++                        };
++#    pragma unroll
++                        for (int m0 = 0; m0 < 192; m0 += 32) {
++                            unpack_to_sh(m0 + threadIdx.x);
++                        }
++                        if (threadIdx.x < 13) {
++                            unpack_to_sh(192 + threadIdx.x);
++                        }
++                        __syncwarp();
++                        const int32_t * w_chunk = (const int32_t *) (sh + kqs * 32);
++                        int w_reg[8];
++#    pragma unroll
++                        for (int w = 0; w < 8; ++w) {
++                            w_reg[w] = w_chunk[w];
++                        }
++                        __syncwarp();
++                        const float d_sb = ptq1_sb_sub_scale(bq, kqs >> 2);
++#    pragma unroll
++                        for (int j = 0; j < ncols_dst; ++j) {
++                            int sumi = 0;
++#    pragma unroll
++                            for (int w = 0; w < 8; ++w) {
++                                sumi = ggml_cuda_dp4a(w_reg[w], u_act[j][w], sumi);
++                            }
++                            out_acc[j][i] += d_sb * d8_act[j] * (float) (sumi - sumu_act[j]);
++                        }
++                    }
++                }
++            };
++            eval_sb(vx, tmp);
++            if constexpr (has_fusion) {
++                if constexpr (has_gate) {
++                    eval_sb(vgate, tmp_gate);
++                }
++            }
+         } else
+ #endif
+         {
+@@ -1529,6 +1617,513 @@ static void mul_mat_vec_q_moe_launch(
+     }
+ }
+ 
++#if !defined(GGML_USE_HIP) && !defined(GGML_USE_MUSA)
++static __device__ __forceinline__ uint32_t ptq1_sb_unpack_u32(const uint32_t b, uint32_t & t4) {
++    const uint32_t q01 = (b * 0x00030001u) & 0x00FF00FFu;
++    const uint32_t t01 = ((q01 * 3u) >> 8) & 0x00030003u;
++    const uint32_t q23 = (b * 0x001B0009u) & 0x00FF00FFu;
++    const uint32_t t23 = ((q23 * 3u) >> 8) & 0x00030003u;
++    t4 = (((b * 81u) & 0xFFu) * 3u) >> 8;
++    return __byte_perm(t01, t23, 0x6420);
++}
++
++struct ptq1_sb_raw_bq {
++    uint32_t lo1;
++    uint32_t lo2;
++    uint32_t tail;
++    uint32_t off;
++    float    d_sb;
++};
++
++static __device__ __forceinline__ ptq1_sb_raw_bq ptq1_sb_prefetch_bq(const block_ptq1_sb * bq, const int lane) {
++    ptq1_sb_raw_bq res;
++    const uintptr_t  u_qs    = (uintptr_t) bq->qs;
++    const uint32_t   off     = (uint32_t) (u_qs & 3u);
++    const uint32_t * base_ap = (const uint32_t *) (u_qs - off);
++    res.off  = off;
++    res.lo1  = base_ap[lane];
++    res.lo2  = (lane < 19) ? base_ap[32 + lane] : 0u;
++    res.tail = 0u;
++    if (lane == 18) {
++        res.tail = ((uint32_t) bq->qs[200])
++                 | ((uint32_t) bq->qs[201] << 8)
++                 | ((uint32_t) bq->qs[202] << 16)
++                 | ((uint32_t) bq->qs[203] << 24);
++    } else if (lane == 19) {
++        res.tail = (uint32_t) bq->qs[204];
++    }
++    res.d_sb = ptq1_sb_sub_scale(bq, lane >> 2);
++    return res;
++}
++
++// 0-SMEM warp-register unpack of 1024 ternary trits into 8 packed u8 regs (values 0, 1, 2; mean offset 1 via isum).
++static __device__ __forceinline__ void ptq1_sb_warp_unpack_regs(
++        const ptq1_sb_raw_bq & b, const int lane, int * w_reg) {
++    const uint32_t sh       = b.off * 8u;
++    const uint32_t lo1_next = __shfl_sync(0xFFFFFFFFu, b.lo1, (lane + 1) & 31);
++    const uint32_t lo2_0    = __shfl_sync(0xFFFFFFFFu, b.lo2, 0);
++    const uint32_t hi1      = (lane == 31) ? lo2_0 : lo1_next;
++    const uint32_t my_w_lo  = b.off ? __funnelshift_r(b.lo1, hi1, sh) : b.lo1;
++
++    const uint32_t lo2_next = __shfl_sync(0xFFFFFFFFu, b.lo2, (lane + 1) & 31);
++    const uint32_t my_w_hi  = (lane >= 18) ? b.tail : (b.off ? __funnelshift_r(b.lo2, lo2_next, sh) : b.lo2);
++
++    const int      e0   = lane * 32;
++    const int      b0   = e0 / 5;
++    const int      rem0 = e0 - b0 * 5;
++    const int      sw   = b0 >> 2;
++    const int      sl0  = sw & 31;
++    const int      sl1  = (sw + 1) & 31;
++    const int      sl2  = (sw + 2) & 31;
++    const uint32_t bo   = (uint32_t) ((b0 & 3) * 8);
++
++    const uint32_t lo0  = __shfl_sync(0xFFFFFFFFu, my_w_lo, sl0);
++    const uint32_t lo1  = __shfl_sync(0xFFFFFFFFu, my_w_lo, sl1);
++    const uint32_t lo2  = __shfl_sync(0xFFFFFFFFu, my_w_lo, sl2);
++    const uint32_t hi0  = __shfl_sync(0xFFFFFFFFu, my_w_hi, sl0);
++    const uint32_t hi1w = __shfl_sync(0xFFFFFFFFu, my_w_hi, sl1);
++    const uint32_t hi2w = __shfl_sync(0xFFFFFFFFu, my_w_hi, sl2);
++
++    const uint32_t w0 = (lane < 20) ? lo0 : hi0;
++    const uint32_t w1 = (lane < 20) ? lo1 : hi1w;
++    const uint32_t w2 = (lane < 19) ? lo2 : hi2w;
++
++    const uint32_t p_lo = bo ? __funnelshift_r(w0, w1, bo) : w0;
++    const uint32_t p_hi = bo ? __funnelshift_r(w1, w2, bo) : w1;
++
++    uint32_t t0, t1, t2, t3, t4, t5, t6, unused;
++    const uint32_t u0 = ptq1_sb_unpack_u32(p_lo & 0xFFu,         t0);
++    const uint32_t u1 = ptq1_sb_unpack_u32((p_lo >> 8) & 0xFFu,  t1);
++    const uint32_t u2 = ptq1_sb_unpack_u32((p_lo >> 16) & 0xFFu, t2);
++    const uint32_t u3 = ptq1_sb_unpack_u32(p_lo >> 24,           t3);
++    const uint32_t u4 = ptq1_sb_unpack_u32(p_hi & 0xFFu,         t4);
++    const uint32_t u5 = ptq1_sb_unpack_u32((p_hi >> 8) & 0xFFu,  t5);
++    const uint32_t u6 = ptq1_sb_unpack_u32((p_hi >> 16) & 0xFFu, t6);
++    const uint32_t u7 = ptq1_sb_unpack_u32(p_hi >> 24,           unused);
++
++    const uint32_t r[9] = {
++        u0,
++        t0 | (u1 << 8),
++        (u1 >> 24) | (t1 << 8) | (u2 << 16),
++        (u2 >> 16) | (t2 << 16) | (u3 << 24),
++        (u3 >> 8)  | (t3 << 24),
++        u4,
++        t4 | (u5 << 8),
++        (u5 >> 24) | (t5 << 8) | (u6 << 16),
++        (u6 >> 16) | (t6 << 16) | ((u7 & 0xFFu) << 24),
++    };
++
++    const uint32_t rsh = (uint32_t) (rem0 * 8);
++#pragma unroll
++    for (int k = 0; k < 8; ++k) {
++        if (rem0 == 4) {
++            w_reg[k] = (int) r[k + 1];
++        } else {
++            w_reg[k] = (int) (rsh ? __funnelshift_r(r[k], r[k + 1], rsh) : r[k]);
++        }
++    }
++}
++
++static __device__ __forceinline__ float ptq1_sb_dp4a_slice(
++        const int * w_reg, const uint4 * slice, const int lane, const float d_sb) {
++    const half2 ds   = ((const half2 *) (slice + 64))[lane];
++    const float d8   = __low2float(ds);
++    const int   sumu = (int) __half_as_short(__high2half(ds));
++    const uint4 p0   = slice[lane];
++    const uint4 p1   = slice[32 + lane];
++    int sumi = 0;
++    sumi = ggml_cuda_dp4a(w_reg[0], (int) p0.x, sumi);
++    sumi = ggml_cuda_dp4a(w_reg[1], (int) p0.y, sumi);
++    sumi = ggml_cuda_dp4a(w_reg[2], (int) p0.z, sumi);
++    sumi = ggml_cuda_dp4a(w_reg[3], (int) p0.w, sumi);
++    sumi = ggml_cuda_dp4a(w_reg[4], (int) p1.x, sumi);
++    sumi = ggml_cuda_dp4a(w_reg[5], (int) p1.y, sumi);
++    sumi = ggml_cuda_dp4a(w_reg[6], (int) p1.z, sumi);
++    sumi = ggml_cuda_dp4a(w_reg[7], (int) p1.w, sumi);
++    return d_sb * d8 * (float) (sumi - sumu);
++}
++
++// Zero-SMEM, zero-__syncwarp() PTQ1_SB mat-vec consuming native GGML_CUDA_Q8_1_SB directly.
++// Block: (32, 4) — each warp processes 1 independent row asynchronously across kbx.
++template <int ncols_dst, bool has_fusion, bool has_gate>
++__launch_bounds__(128)
++static __global__ void mul_mat_vec_ptq1_sb_fast(
++        const void * __restrict__ vx, const uint4 * __restrict__ vy_sb,
++        const ggml_cuda_mm_fusion_args_device fusion, float * __restrict__ dst,
++        const int ncols_x, const int nrows_x,
++        const int stride_row_x, const int stride_sb_y, const int stride_col_dst) {
++    constexpr int warp_size = ggml_cuda_get_physical_warp_size();
++    constexpr int nwarps    = 4;
++
++    const int warp = (int) threadIdx.y;
++    const int row  = (int) blockIdx.x * nwarps + warp;
++    if (row >= nrows_x) {
++        return;
++    }
++
++    const int lane             = (int) threadIdx.x;
++    const int blocks_per_row_x = ncols_x / QK_PTQ1_SB;
++
++    const void  * vgate      = nullptr;
++    const float * x_bias     = nullptr;
++    const float * gate_bias  = nullptr;
++    bool          use_gate   = false;
++    bool          use_bias   = false;
++    bool          use_gbias  = false;
++    ggml_glu_op   active_glu = GGML_GLU_OP_SWIGLU;
++    float         glu_limit  = 0.0f;
++    if constexpr (has_fusion) {
++        use_gate   = fusion.gate != nullptr;
++        vgate      = fusion.gate;
++        x_bias     = (const float *) fusion.x_bias;
++        gate_bias  = (const float *) fusion.gate_bias;
++        use_bias   = x_bias != nullptr;
++        use_gbias  = gate_bias != nullptr;
++        active_glu = fusion.glu_op;
++        glu_limit  = fusion.glu_limit;
++    }
++
++    float tmp[ncols_dst] = { 0.0f };
++    float tmp_gate[has_gate ? ncols_dst : 1] = { 0.0f };
++
++    const block_ptq1_sb * row_x    = (const block_ptq1_sb *) vx + (int64_t) row * stride_row_x;
++    const block_ptq1_sb * row_gate = nullptr;
++    if constexpr (has_fusion && has_gate) {
++        row_gate = (const block_ptq1_sb *) vgate + (int64_t) row * stride_row_x;
++    }
++
++    ptq1_sb_raw_bq cur = ptq1_sb_prefetch_bq(row_x, lane);
++
++    for (int kbx = 0; kbx < blocks_per_row_x; ++kbx) {
++        int w_reg[8];
++        ptq1_sb_warp_unpack_regs(cur, lane, w_reg);
++        const float d_sb = cur.d_sb;
++
++        ptq1_sb_raw_bq gate_cur;
++        if constexpr (has_fusion && has_gate) {
++            if (use_gate) {
++                gate_cur = ptq1_sb_prefetch_bq(row_gate + kbx, lane);
++            }
++        }
++        if (kbx + 1 < blocks_per_row_x) {
++            cur = ptq1_sb_prefetch_bq(row_x + kbx + 1, lane);
++        }
++
++        if constexpr (has_fusion && has_gate) {
++            int gate_w[8];
++            if (use_gate) {
++                ptq1_sb_warp_unpack_regs(gate_cur, lane, gate_w);
++            }
++#pragma unroll
++            for (int j = 0; j < ncols_dst; ++j) {
++                const uint4 * slice = vy_sb + ((int64_t) j * stride_sb_y + kbx) * 72;
++                const half2 ds   = ((const half2 *) (slice + 64))[lane];
++                const float d8   = __low2float(ds);
++                const int   sumu = (int) __half_as_short(__high2half(ds));
++                const uint4 p0   = slice[lane];
++                const uint4 p1   = slice[32 + lane];
++                int sumi = 0;
++                sumi = ggml_cuda_dp4a(w_reg[0], (int) p0.x, sumi);
++                sumi = ggml_cuda_dp4a(w_reg[1], (int) p0.y, sumi);
++                sumi = ggml_cuda_dp4a(w_reg[2], (int) p0.z, sumi);
++                sumi = ggml_cuda_dp4a(w_reg[3], (int) p0.w, sumi);
++                sumi = ggml_cuda_dp4a(w_reg[4], (int) p1.x, sumi);
++                sumi = ggml_cuda_dp4a(w_reg[5], (int) p1.y, sumi);
++                sumi = ggml_cuda_dp4a(w_reg[6], (int) p1.z, sumi);
++                sumi = ggml_cuda_dp4a(w_reg[7], (int) p1.w, sumi);
++                tmp[j] += d_sb * d8 * (float) (sumi - sumu);
++                if (use_gate) {
++                    int sumi_g = 0;
++                    sumi_g = ggml_cuda_dp4a(gate_w[0], (int) p0.x, sumi_g);
++                    sumi_g = ggml_cuda_dp4a(gate_w[1], (int) p0.y, sumi_g);
++                    sumi_g = ggml_cuda_dp4a(gate_w[2], (int) p0.z, sumi_g);
++                    sumi_g = ggml_cuda_dp4a(gate_w[3], (int) p0.w, sumi_g);
++                    sumi_g = ggml_cuda_dp4a(gate_w[4], (int) p1.x, sumi_g);
++                    sumi_g = ggml_cuda_dp4a(gate_w[5], (int) p1.y, sumi_g);
++                    sumi_g = ggml_cuda_dp4a(gate_w[6], (int) p1.z, sumi_g);
++                    sumi_g = ggml_cuda_dp4a(gate_w[7], (int) p1.w, sumi_g);
++                    tmp_gate[j] += gate_cur.d_sb * d8 * (float) (sumi_g - sumu);
++                }
++            }
++        } else {
++#pragma unroll
++            for (int j = 0; j < ncols_dst; ++j) {
++                const uint4 * slice = vy_sb + ((int64_t) j * stride_sb_y + kbx) * 72;
++                tmp[j] += ptq1_sb_dp4a_slice(w_reg, slice, lane, d_sb);
++            }
++        }
++    }
++
++#pragma unroll
++    for (int j = 0; j < ncols_dst; ++j) {
++        tmp[j] = warp_reduce_sum<warp_size>(tmp[j]);
++        if constexpr (has_fusion && has_gate) {
++            if (use_gate) {
++                tmp_gate[j] = warp_reduce_sum<warp_size>(tmp_gate[j]);
++            }
++        }
++    }
++    if (lane == 0) {
++#pragma unroll
++        for (int j = 0; j < ncols_dst; ++j) {
++            float result = tmp[j];
++            if constexpr (has_fusion) {
++                if (use_bias) {
++                    result += x_bias[(int64_t) j * stride_col_dst + row];
++                }
++                if constexpr (has_gate) {
++                    if (use_gate) {
++                        float gate_value = tmp_gate[j];
++                        if (use_gbias) {
++                            gate_value += gate_bias[(int64_t) j * stride_col_dst + row];
++                        }
++                        switch (active_glu) {
++                            case GGML_GLU_OP_SWIGLU:
++                                result *= ggml_cuda_op_silu_single(gate_value);
++                                break;
++                            case GGML_GLU_OP_GEGLU:
++                                result *= ggml_cuda_op_gelu_single(gate_value);
++                                break;
++                            case GGML_GLU_OP_SWIGLU_OAI:
++                                result = ggml_cuda_op_swiglu_oai_single(gate_value, result);
++                                break;
++                            case GGML_GLU_OP_SWIGLU_CLAMP:
++                                result = ggml_cuda_op_swiglu_clamp_single(gate_value, result, glu_limit);
++                                break;
++                            default:
++                                result *= gate_value;
++                                break;
++                        }
++                    }
++                }
++            }
++            dst[(int64_t) j * stride_col_dst + row] = result;
++        }
++    }
++    if constexpr (!has_fusion) {
++        GGML_UNUSED_VARS(vgate, x_bias, gate_bias, use_gate, use_bias, use_gbias, active_glu, glu_limit, tmp_gate);
++    }
++}
++
++// 2-row-per-warp zero-SMEM kernel for batch sizes 1..16 (non-gate projections):
++// issues 2 independent PTQ1_SB block prefetches per warp step and reuses each Q8_1_SB activation slice across 2 rows.
++template <int ncols_dst>
++__launch_bounds__(128)
++static __global__ void mul_mat_vec_ptq1_sb_fast_2row(
++        const void * __restrict__ vx, const uint4 * __restrict__ vy_sb,
++        const float * __restrict__ x_bias, float * __restrict__ dst,
++        const int ncols_x, const int nrows_x,
++        const int stride_row_x, const int stride_sb_y, const int stride_col_dst) {
++    constexpr int warp_size = ggml_cuda_get_physical_warp_size();
++    constexpr int nwarps    = 4;
++
++    const int warp = (int) threadIdx.y;
++    const int row0 = (int) blockIdx.x * (nwarps * 2) + warp * 2;
++    if (row0 >= nrows_x) {
++        return;
++    }
++    const int  row1 = row0 + 1;
++    const bool has1 = row1 < nrows_x;
++    const int  lane = (int) threadIdx.x;
++    const int  blocks_per_row_x = ncols_x / QK_PTQ1_SB;
++
++    float tmp0[ncols_dst] = { 0.0f };
++    float tmp1[ncols_dst] = { 0.0f };
++
++    const block_ptq1_sb * rx0 = (const block_ptq1_sb *) vx + (int64_t) row0 * stride_row_x;
++    const block_ptq1_sb * rx1 = has1 ? ((const block_ptq1_sb *) vx + (int64_t) row1 * stride_row_x) : rx0;
++
++    ptq1_sb_raw_bq cur0 = ptq1_sb_prefetch_bq(rx0, lane);
++    ptq1_sb_raw_bq cur1 = ptq1_sb_prefetch_bq(rx1, lane);
++
++    for (int kbx = 0; kbx < blocks_per_row_x; ++kbx) {
++        int w0[8], w1[8];
++        const float d0 = cur0.d_sb;
++        const float d1 = cur1.d_sb;
++
++        ptq1_sb_warp_unpack_regs(cur0, lane, w0);
++        if (kbx + 1 < blocks_per_row_x) {
++            cur0 = ptq1_sb_prefetch_bq(rx0 + kbx + 1, lane);
++        }
++        ptq1_sb_warp_unpack_regs(cur1, lane, w1);
++        if (kbx + 1 < blocks_per_row_x) {
++            cur1 = ptq1_sb_prefetch_bq(rx1 + kbx + 1, lane);
++        }
++
++#pragma unroll
++        for (int j = 0; j < ncols_dst; ++j) {
++            const uint4 * slice = vy_sb + ((int64_t) j * stride_sb_y + kbx) * 72;
++            const half2 ds   = ((const half2 *) (slice + 64))[lane];
++            const float d8   = __low2float(ds);
++            const int   sumu = (int) __half_as_short(__high2half(ds));
++            const uint4 p0   = slice[lane];
++            const uint4 p1   = slice[32 + lane];
++            int s0 = 0, s1 = 0;
++            s0 = ggml_cuda_dp4a(w0[0], (int) p0.x, s0); s1 = ggml_cuda_dp4a(w1[0], (int) p0.x, s1);
++            s0 = ggml_cuda_dp4a(w0[1], (int) p0.y, s0); s1 = ggml_cuda_dp4a(w1[1], (int) p0.y, s1);
++            s0 = ggml_cuda_dp4a(w0[2], (int) p0.z, s0); s1 = ggml_cuda_dp4a(w1[2], (int) p0.z, s1);
++            s0 = ggml_cuda_dp4a(w0[3], (int) p0.w, s0); s1 = ggml_cuda_dp4a(w1[3], (int) p0.w, s1);
++            s0 = ggml_cuda_dp4a(w0[4], (int) p1.x, s0); s1 = ggml_cuda_dp4a(w1[4], (int) p1.x, s1);
++            s0 = ggml_cuda_dp4a(w0[5], (int) p1.y, s0); s1 = ggml_cuda_dp4a(w1[5], (int) p1.y, s1);
++            s0 = ggml_cuda_dp4a(w0[6], (int) p1.z, s0); s1 = ggml_cuda_dp4a(w1[6], (int) p1.z, s1);
++            s0 = ggml_cuda_dp4a(w0[7], (int) p1.w, s0); s1 = ggml_cuda_dp4a(w1[7], (int) p1.w, s1);
++            tmp0[j] += d0 * d8 * (float) (s0 - sumu);
++            tmp1[j] += d1 * d8 * (float) (s1 - sumu);
++        }
++    }
++
++#pragma unroll
++    for (int j = 0; j < ncols_dst; ++j) {
++        tmp0[j] = warp_reduce_sum<warp_size>(tmp0[j]);
++        tmp1[j] = warp_reduce_sum<warp_size>(tmp1[j]);
++    }
++    if (lane == 0) {
++#pragma unroll
++        for (int j = 0; j < ncols_dst; ++j) {
++            const int64_t off0 = (int64_t) j * stride_col_dst + row0;
++            float r0 = tmp0[j];
++            if (x_bias != nullptr) {
++                r0 += x_bias[off0];
++            }
++            dst[off0] = r0;
++            if (has1) {
++                const int64_t off1 = (int64_t) j * stride_col_dst + row1;
++                float r1 = tmp1[j];
++                if (x_bias != nullptr) {
++                    r1 += x_bias[off1];
++                }
++                dst[off1] = r1;
++            }
++        }
++    }
++}
++
++template <int ncols_dst, bool has_fusion, bool has_gate>
++static void mul_mat_vec_ptq1_sb_fast_launch_k(
++        const void * vx, const uint4 * vy_sb, const ggml_cuda_mm_fusion_args_device fusion, float * dst,
++        const int ncols_x, const int nrows_x, const int stride_row_x, const int stride_sb_y, const int stride_col_dst,
++        const dim3 & block_nums, const dim3 & block_dims, cudaStream_t stream) {
++    const ggml_cuda_kernel_launch_params lp = ggml_cuda_kernel_launch_params(block_nums, block_dims, 0, stream);
++    ggml_cuda_kernel_launch(mul_mat_vec_ptq1_sb_fast<ncols_dst, has_fusion, has_gate>, lp,
++        vx, vy_sb, fusion, dst, ncols_x, nrows_x, stride_row_x, stride_sb_y, stride_col_dst);
++}
++
++template <int ncols_dst>
++static void mul_mat_vec_ptq1_sb_fast_launch_ncols(
++        const void * vx, const uint4 * vy_sb, const ggml_cuda_mm_fusion_args_device fusion, float * dst,
++        const int ncols_x, const int nrows_x, const int stride_row_x, const int stride_sb_y, const int stride_col_dst,
++        cudaStream_t stream) {
++    constexpr int nwarps = 4;
++    const int warp_size = ggml_cuda_info().devices[ggml_cuda_get_device()].warp_size;
++    const dim3 block_dims(warp_size, nwarps, 1);
++    if (fusion.gate == nullptr || ncols_dst >= 9) {
++        const dim3 block_nums((nrows_x + nwarps * 2 - 1) / (nwarps * 2), 1, 1);
++        const ggml_cuda_kernel_launch_params lp = ggml_cuda_kernel_launch_params(block_nums, block_dims, 0, stream);
++        ggml_cuda_kernel_launch(mul_mat_vec_ptq1_sb_fast_2row<ncols_dst>, lp,
++            vx, vy_sb, (const float *) fusion.x_bias, dst, ncols_x, nrows_x, stride_row_x, stride_sb_y, stride_col_dst);
++        return;
++    }
++    const dim3 block_nums((nrows_x + nwarps - 1) / nwarps, 1, 1);
++    mul_mat_vec_ptq1_sb_fast_launch_k<ncols_dst, true, true>(
++        vx, vy_sb, fusion, dst, ncols_x, nrows_x, stride_row_x, stride_sb_y, stride_col_dst, block_nums, block_dims, stream);
++}
++
++static bool mul_mat_vec_ptq1_sb_fast_switch(
++        const void * vx, const uint4 * vy_sb, const ggml_cuda_mm_fusion_args_device fusion, float * dst,
++        const int ncols_x, const int nrows_x, const int ncols_dst,
++        const int stride_row_x, const int stride_sb_y, const int stride_col_dst, cudaStream_t stream) {
++    switch (ncols_dst) {
++        case 1:  mul_mat_vec_ptq1_sb_fast_launch_ncols<1>(vx, vy_sb, fusion, dst, ncols_x, nrows_x, stride_row_x, stride_sb_y, stride_col_dst, stream);  return true;
++        case 2:  mul_mat_vec_ptq1_sb_fast_launch_ncols<2>(vx, vy_sb, fusion, dst, ncols_x, nrows_x, stride_row_x, stride_sb_y, stride_col_dst, stream);  return true;
++        case 3:  mul_mat_vec_ptq1_sb_fast_launch_ncols<3>(vx, vy_sb, fusion, dst, ncols_x, nrows_x, stride_row_x, stride_sb_y, stride_col_dst, stream);  return true;
++        case 4:  mul_mat_vec_ptq1_sb_fast_launch_ncols<4>(vx, vy_sb, fusion, dst, ncols_x, nrows_x, stride_row_x, stride_sb_y, stride_col_dst, stream);  return true;
++        case 5:  mul_mat_vec_ptq1_sb_fast_launch_ncols<5>(vx, vy_sb, fusion, dst, ncols_x, nrows_x, stride_row_x, stride_sb_y, stride_col_dst, stream);  return true;
++        case 6:  mul_mat_vec_ptq1_sb_fast_launch_ncols<6>(vx, vy_sb, fusion, dst, ncols_x, nrows_x, stride_row_x, stride_sb_y, stride_col_dst, stream);  return true;
++        case 7:  mul_mat_vec_ptq1_sb_fast_launch_ncols<7>(vx, vy_sb, fusion, dst, ncols_x, nrows_x, stride_row_x, stride_sb_y, stride_col_dst, stream);  return true;
++        case 8:  mul_mat_vec_ptq1_sb_fast_launch_ncols<8>(vx, vy_sb, fusion, dst, ncols_x, nrows_x, stride_row_x, stride_sb_y, stride_col_dst, stream);  return true;
++        case 9:  mul_mat_vec_ptq1_sb_fast_launch_ncols<9>(vx, vy_sb, fusion, dst, ncols_x, nrows_x, stride_row_x, stride_sb_y, stride_col_dst, stream);  return true;
++        case 10: mul_mat_vec_ptq1_sb_fast_launch_ncols<10>(vx, vy_sb, fusion, dst, ncols_x, nrows_x, stride_row_x, stride_sb_y, stride_col_dst, stream); return true;
++        case 11: mul_mat_vec_ptq1_sb_fast_launch_ncols<11>(vx, vy_sb, fusion, dst, ncols_x, nrows_x, stride_row_x, stride_sb_y, stride_col_dst, stream); return true;
++        case 12: mul_mat_vec_ptq1_sb_fast_launch_ncols<12>(vx, vy_sb, fusion, dst, ncols_x, nrows_x, stride_row_x, stride_sb_y, stride_col_dst, stream); return true;
++        case 13: mul_mat_vec_ptq1_sb_fast_launch_ncols<13>(vx, vy_sb, fusion, dst, ncols_x, nrows_x, stride_row_x, stride_sb_y, stride_col_dst, stream); return true;
++        case 14: mul_mat_vec_ptq1_sb_fast_launch_ncols<14>(vx, vy_sb, fusion, dst, ncols_x, nrows_x, stride_row_x, stride_sb_y, stride_col_dst, stream); return true;
++        case 15: mul_mat_vec_ptq1_sb_fast_launch_ncols<15>(vx, vy_sb, fusion, dst, ncols_x, nrows_x, stride_row_x, stride_sb_y, stride_col_dst, stream); return true;
++        case 16: mul_mat_vec_ptq1_sb_fast_launch_ncols<16>(vx, vy_sb, fusion, dst, ncols_x, nrows_x, stride_row_x, stride_sb_y, stride_col_dst, stream); return true;
++        default: return false;
++    }
++}
++
++// Shared-activation DP4A tiled kernel for PTQ1_SB prefill (ncols_dst = 17..512): avoids F16 dequant + cuBLAS.
++template <int J_TILE, int NWARPS>
++__launch_bounds__(32 * NWARPS)
++static __global__ void mul_mat_ptq1_sb_tiled_kernel(
++        const void * __restrict__ vx, const uint4 * __restrict__ vy_sb, float * __restrict__ dst,
++        const int blocks_per_row_x, const int nrows_x, const int ncols_dst,
++        const int stride_row_x, const int stride_sb_y, const int stride_col_dst) {
++    const int  lane       = (int) threadIdx.x;
++    const int  warp       = (int) threadIdx.y;
++    const int  row        = (int) blockIdx.x * NWARPS + warp;
++    const int  col0       = (int) blockIdx.y * J_TILE;
++    const int  ncols_tile = min(J_TILE, ncols_dst - col0);
++    const bool full_tile  = (col0 + J_TILE <= ncols_dst);
++
++    __shared__ __align__(16) uint4 sh_y[J_TILE][72];
++
++    float acc[J_TILE] = { 0.0f };
++    const block_ptq1_sb * row_x = (row < nrows_x) ? ((const block_ptq1_sb *) vx + (int64_t) row * stride_row_x) : nullptr;
++    ptq1_sb_raw_bq cur{};
++    if (row < nrows_x && blocks_per_row_x > 0) {
++        cur = ptq1_sb_prefetch_bq(row_x, lane);
++    }
++
++    for (int kbx = 0; kbx < blocks_per_row_x; ++kbx) {
++        if (kbx > 0) {
++            __syncthreads();
++        }
++        for (int j = warp; j < ncols_tile; j += NWARPS) {
++            const uint4 * src_blk = vy_sb + ((int64_t) (col0 + j) * stride_sb_y + kbx) * 72;
++            sh_y[j][lane]      = src_blk[lane];
++            sh_y[j][32 + lane] = src_blk[32 + lane];
++            if (lane < 8) {
++                sh_y[j][64 + lane] = src_blk[64 + lane];
++            }
++        }
++        __syncthreads();
++
++        if (row < nrows_x) {
++            int w_reg[8];
++            ptq1_sb_warp_unpack_regs(cur, lane, w_reg);
++            const float d_sb = cur.d_sb;
++            if (kbx + 1 < blocks_per_row_x) {
++                cur = ptq1_sb_prefetch_bq(row_x + kbx + 1, lane);
++            }
++            if (full_tile) {
++#pragma unroll
++                for (int j = 0; j < J_TILE; ++j) {
++                    acc[j] += ptq1_sb_dp4a_slice(w_reg, sh_y[j], lane, d_sb);
++                }
++            } else {
++                for (int j = 0; j < ncols_tile; ++j) {
++                    acc[j] += ptq1_sb_dp4a_slice(w_reg, sh_y[j], lane, d_sb);
++                }
++            }
++        }
++    }
++
++    if (row < nrows_x) {
++#pragma unroll
++        for (int j = 0; j < J_TILE; ++j) {
++            acc[j] = warp_reduce_sum<32>(acc[j]);
++        }
++        if (lane == 0) {
++            for (int j = 0; j < ncols_tile; ++j) {
++                dst[(int64_t) (col0 + j) * stride_col_dst + row] = acc[j];
++            }
++        }
++    }
++}
++#endif // !defined(GGML_USE_HIP) && !defined(GGML_USE_MUSA)
++
+ template <ggml_type type>
+ static void mul_mat_vec_q_switch_ncols_dst(
+         const void * vx, const void * vy, const int32_t * ids, const ggml_cuda_mm_fusion_args_device fusion, float * dst,
+@@ -1811,6 +2406,12 @@ static void mul_mat_vec_q_switch_type(
+                  nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
+                  nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, y_layout, stream);
+             break;
++        case GGML_TYPE_PTQ1_SB:
++            mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_PTQ1_SB>
++                (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
++                 nchannels_x, nchannels_y, nchannels_dst, stride_channel_x, stride_channel_y, stride_channel_dst,
++                 nsamples_x, nsamples_dst, stride_sample_x, stride_sample_y, stride_sample_dst, ids_stride, y_layout, stream);
++            break;
+         case GGML_TYPE_Q2_0:
+             mul_mat_vec_q_switch_ncols_dst<GGML_TYPE_Q2_0>
+                 (vx, vy, ids, fusion, dst, ncols_x, nrows_x, ncols_dst, stride_row_x, stride_col_y, stride_col_dst,
+@@ -1978,8 +2579,11 @@ void ggml_cuda_mul_mat_vec_q(
+ 
+     if (fusion) {
+         const int cc = ggml_cuda_info().devices[ggml_cuda_get_device()].cc;
++        const bool ptq1_sb_mc = src0->type == GGML_TYPE_PTQ1_SB && dst->ne[1] >= 1 && dst->ne[1] <= 8 &&
++                                ne02 == 1 && ne12 == 1 && ne2 == 1 && ne03 == 1 && ne13 == 1 && ne3 == 1 &&
++                                ne00 % QK_PTQ1_SB == 0 && ggml_is_contiguous(src0);
+         GGML_ASSERT( !ids || dst->ne[2] <= get_mmvq_mmid_max_batch(src0->type, cc));
+-        GGML_ASSERT(  ids || dst->ne[1] == 1);
++        GGML_ASSERT(  ids || dst->ne[1] == 1 || ptq1_sb_mc);
+         // Scale fusion is only allowed for NVFP4 currently as the cost of checking this at run-time in the prologue is
+         // non-negligible for some models such as gpt-oss-20b
+         GGML_ASSERT((fusion->x_scale == nullptr && fusion->gate_scale == nullptr) || src0->type == GGML_TYPE_NVFP4);
+@@ -2051,6 +2655,8 @@ void ggml_cuda_mul_mat_vec_q(
+     if (y_layout == GGML_CUDA_Q8_1_SOA_ISUM) {
+         // Warp-transposed q8 layout needs whole 32-K-block groups per column.
+         ne10_padded = GGML_PAD(ne10_padded, GGML_CUDA_PTQ1_K_PAD);
++    } else if (y_layout == GGML_CUDA_Q8_1_SB) {
++        ne10_padded = GGML_PAD(ne10_padded, QK_PTQ1_SB);
+     }
+     // src1 may be a Hadamard transform output whose producer already wrote the q8_1 rows in this
+     // exact layout (ggml_cuda_fwht_q8, into src1's buffer or a held pool block); nothing to quantize.
+@@ -2093,6 +2699,23 @@ void ggml_cuda_mul_mat_vec_q(
+ 
+     const int64_t ids_stride = ids ? ids->nb[1] / ggml_type_size(ids->type) : 0;
+ 
++#if !defined(GGML_USE_HIP) && !defined(GGML_USE_MUSA)
++    if (src0->type == GGML_TYPE_PTQ1_SB && !ids &&
++        y_layout == GGML_CUDA_Q8_1_SB &&
++        ne02 == 1 && ne12 == 1 && ne2 == 1 &&
++        ne03 == 1 && ne13 == 1 && ne3 == 1 &&
++        ne1 >= 1 && ne1 <= 16 &&
++        ne00 % QK_PTQ1_SB == 0 && (s11 % 32 == 0) &&
++        !fusion_local.x_scale && !fusion_local.gate_scale &&
++        (ncols_dst <= 8 || (!fusion_local.gate && !fusion_local.x_bias && !fusion_local.gate_bias))) {
++        if (mul_mat_vec_ptq1_sb_fast_switch(
++                src0->data, (const uint4 *) src1_q8_1_d, fusion_local, dst_d, (int) ne00, (int) ne01, (int) ncols_dst,
++                (int) s01, (int) (stride_col_y / 32), (int) stride_col_dst, stream)) {
++            return;
++        }
++    }
++#endif
++
+     mul_mat_vec_q_switch_type(
+         src0->data, src0->type, src1_q8_1_d, ids_d, fusion_local, dst_d, ne00,
+         ne01,              ncols_dst,     s01, stride_col_y,     stride_col_dst,
+@@ -2125,9 +2748,75 @@ void ggml_cuda_op_mul_mat_vec_q(
+ 
+     ggml_cuda_mm_fusion_args_device fusion_local{};
+     const ggml_cuda_q8_1_layout y_layout = ggml_cuda_q8_1_layout_host(src0->type, (int) src1_ncols, false);
++#if !defined(GGML_USE_HIP) && !defined(GGML_USE_MUSA)
++    if (src0->type == GGML_TYPE_PTQ1_SB && y_layout == GGML_CUDA_Q8_1_SB &&
++            src1_ncols >= 1 && src1_ncols <= 16 && ne00 % QK_PTQ1_SB == 0 && (stride_col_y % 32 == 0)) {
++        if (mul_mat_vec_ptq1_sb_fast_switch(
++                src0_dd_i, (const uint4 *) src1_ddq_i, fusion_local, dst_dd_i, (int) ne00, (int) row_diff,
++                (int) src1_ncols, stride_row_x, stride_col_y / 32, (int) nrows_dst, stream)) {
++            GGML_UNUSED_VARS(src1, dst, src1_ddf_i, src1_padded_row_size);
++            return;
++        }
++    }
++#endif
+     mul_mat_vec_q_switch_type(
+         src0_dd_i, src0->type, src1_ddq_i, nullptr, fusion_local, dst_dd_i, ne00, row_diff, src1_ncols, stride_row_x, stride_col_y, nrows_dst,
+         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, y_layout, stream);
+ 
+     GGML_UNUSED_VARS(src1, dst, src1_ddf_i, src1_ncols, src1_padded_row_size);
+ }
++
++bool ggml_cuda_mul_mat_ptq1_sb_tiled(
++        ggml_backend_cuda_context & ctx, const ggml_tensor * src0, const ggml_tensor * src1, ggml_tensor * dst) {
++#if defined(GGML_USE_HIP) || defined(GGML_USE_MUSA)
++    GGML_UNUSED_VARS(ctx, src0, src1, dst);
++    return false;
++#else
++    if (src0->type != GGML_TYPE_PTQ1_SB || src1->type != GGML_TYPE_F32 || dst->type != GGML_TYPE_F32) {
++        return false;
++    }
++    GGML_TENSOR_BINARY_OP_LOCALS;
++    if (ne02 != 1 || ne12 != 1 || ne2 != 1 || ne03 != 1 || ne13 != 1 || ne3 != 1 ||
++            ne11 <= 16 || ne11 > 512 || ne00 % QK_PTQ1_SB != 0 ||
++            !ggml_is_contiguous(src0) || !ggml_is_contiguous(src1) ||
++            nb00 != ggml_type_size(src0->type) || nb10 != ggml_type_size(src1->type) || nb0 != ggml_type_size(dst->type)) {
++        return false;
++    }
++
++    cudaStream_t stream = ctx.stream();
++    const int64_t ne10_padded = GGML_PAD(GGML_PAD(ne10, MATRIX_ROW_PADDING), QK_PTQ1_SB);
++    const ggml_cuda_fwht_q8 * pre_q8 = ctx.fwht_q8().find(src1);
++    if (pre_q8) {
++        GGML_ASSERT(pre_q8->layout == GGML_CUDA_Q8_1_SB && pre_q8->ne0 == ne10_padded && pre_q8->ncols == ne11);
++    }
++
++    ggml_cuda_pool_alloc<char> src1_q8_1(ctx.pool());
++    const char * src1_sb_d = nullptr;
++    if (pre_q8) {
++        src1_sb_d = (const char *) pre_q8->data;
++    } else {
++        src1_sb_d = src1_q8_1.alloc((size_t) ne11 * ne10_padded * sizeof(block_q8_1) / QK8_1);
++        const int64_t ts1 = ggml_type_size(src1->type);
++        quantize_row_q8_1_cuda(
++            (const float *) src1->data, nullptr, src1_q8_1.get(), GGML_CUDA_Q8_1_SB,
++            ne10, nb11 / ts1, nb12 / ts1, nb13 / ts1, ne10_padded, ne11, 1, 1, stream);
++    }
++
++    const int blocks_per_row_x = (int) (ne00 / QK_PTQ1_SB);
++    const int stride_row_x     = (int) (nb01 / ggml_type_size(src0->type));
++    const int stride_sb_y      = (int) (ne10_padded / QK_PTQ1_SB);
++    const int stride_col_dst   = (int) (nb1 / ggml_type_size(dst->type));
++    const int nrows_x          = (int) ne01;
++    const int ncols_dst        = (int) ne11;
++
++    constexpr int NWARPS = 8;
++    constexpr int J_TILE = 16;
++    const dim3 block_dims(32, NWARPS, 1);
++    const dim3 block_nums((nrows_x + NWARPS - 1) / NWARPS, (ncols_dst + J_TILE - 1) / J_TILE, 1);
++    const ggml_cuda_kernel_launch_params lp = ggml_cuda_kernel_launch_params(block_nums, block_dims, 0, stream);
++    ggml_cuda_kernel_launch(mul_mat_ptq1_sb_tiled_kernel<J_TILE, NWARPS>, lp,
++        src0->data, (const uint4 *) src1_sb_d, (float *) dst->data,
++        blocks_per_row_x, nrows_x, ncols_dst, stride_row_x, stride_sb_y, stride_col_dst);
++    return true;
++#endif
++}
+diff --git a/ggml/src/ggml-cuda/mmvq.cuh b/ggml/src/ggml-cuda/mmvq.cuh
+index 5605bf7..f7fa329 100644
+--- a/ggml/src/ggml-cuda/mmvq.cuh
++++ b/ggml/src/ggml-cuda/mmvq.cuh
+@@ -16,3 +16,7 @@ void ggml_cuda_op_mul_mat_vec_q(
+     const ggml_tensor * src0, const ggml_tensor * src1, ggml_tensor * dst, const char * src0_dd_i, const float * src1_ddf_i,
+     const char * src1_ddq_i, float * dst_dd_i, const int64_t row_low, const int64_t row_high, const int64_t src1_ncols,
+     const int64_t src1_padded_row_size, cudaStream_t stream);
++
++bool ggml_cuda_mul_mat_ptq1_sb_tiled(
++    ggml_backend_cuda_context & ctx,
++    const ggml_tensor * src0, const ggml_tensor * src1, ggml_tensor * dst);
+diff --git a/ggml/src/ggml-cuda/norm.cu b/ggml/src/ggml-cuda/norm.cu
+index 2b17c9d..9a61f0b 100644
+--- a/ggml/src/ggml-cuda/norm.cu
++++ b/ggml/src/ggml-cuda/norm.cu
+@@ -813,7 +813,7 @@ static __global__ void __launch_bounds__(1024, 1) add_rms_norm_fwht_f32(
+             dst[i*NT + tid] = reg[i];
+         }
+     } else {
+-        static_assert(layout == GGML_CUDA_Q8_1_AOS || layout == GGML_CUDA_Q8_1_PQ2, "unsupported q8_1 layout");
++        static_assert(layout == GGML_CUDA_Q8_1_AOS || layout == GGML_CUDA_Q8_1_PQ2 || layout == GGML_CUDA_Q8_1_SB, "unsupported q8_1 layout");
+         char * ycol = (char *) dst_ptr + row*(N/QK8_1)*sizeof(block_q8_1);
+         const int iqs = lane % QK8_1;
+ #pragma unroll
+@@ -837,6 +837,16 @@ static __global__ void __launch_bounds__(1024, 1) add_rms_norm_fwht_f32(
+                 if (iqs == 0) {
+                     ((half2 *) (ycol + N))[kb] = make_half2(__float2half(d), __short_as_half((short) isum));
+                 }
++            } else if constexpr (layout == GGML_CUDA_Q8_1_SB) {
++                // NT == 1024 for all add_rms_norm_fwht_f32 instantiations, so i is the 1024-elem superblock and tid is [0..1023].
++                char * sblk = ycol + i * 1152;
++                const int sb_lane = tid >> 5;
++                const int in_q    = iqs;
++                ((int8_t *) sblk)[(in_q >> 4) * 512 + sb_lane * 16 + (in_q & 15)] = q;
++                int isum = warp_reduce_sum<QK8_1>((int) q);
++                if (in_q == 0) {
++                    ((half2 *) (sblk + 1024))[sb_lane] = make_half2(__float2half(d), __short_as_half((short) isum));
++                }
+             } else {
+                 block_q8_1 * y = (block_q8_1 *) ycol + kb;
+                 y->qs[iqs] = q;
+@@ -895,6 +905,8 @@ void ggml_cuda_op_add_rms_norm_fwht_fused(
+         ARF_LAUNCH(NN, BB, ADD, false, GGML_CUDA_Q8_1_AOS); \
+     } else if (q8_layout == GGML_CUDA_Q8_1_PQ2) { \
+         ARF_LAUNCH(NN, BB, ADD, true, GGML_CUDA_Q8_1_PQ2); \
++    } else if (q8_layout == GGML_CUDA_Q8_1_SB) { \
++        ARF_LAUNCH(NN, BB, ADD, true, GGML_CUDA_Q8_1_SB); \
+     } else { \
+         GGML_ASSERT(q8_layout == GGML_CUDA_Q8_1_AOS); \
+         ARF_LAUNCH(NN, BB, ADD, true, GGML_CUDA_Q8_1_AOS); \
+diff --git a/ggml/src/ggml-cuda/quantize.cu b/ggml/src/ggml-cuda/quantize.cu
+index 3199043..54cdc60 100644
+--- a/ggml/src/ggml-cuda/quantize.cu
++++ b/ggml/src/ggml-cuda/quantize.cu
+@@ -184,6 +184,21 @@ static __global__ void quantize_q8_1(
+         yw[col_base + ggml_cuda_ptq1_q8_word(ib_col, 8)] = *reinterpret_cast<const int32_t *>(&ds);
+         return;
+     }
++    if constexpr (layout == GGML_CUDA_Q8_1_SB) {
++        const int64_t row_cont = (i3*ne2.z + i2) * ne1 + i1;
++        char * sblk = (char *) vy + row_cont * (ne0 * 9 / 8) + (i0 / QK_PTQ1_SB) * 1152;
++        const int e       = (int) (i0 % QK_PTQ1_SB);
++        const int sb_lane = e >> 5;
++        const int in_q    = e & 31;
++        ((int8_t *) sblk)[(in_q >> 4) * 512 + sb_lane * 16 + (in_q & 15)] = q;
++
++        int isum = warp_reduce_sum<QK8_1>((int) q);
++        if (iqs > 0) {
++            return;
++        }
++        ((half2 *) (sblk + 1024))[sb_lane] = make_half2(__float2half(d), __short_as_half((short) isum));
++        return;
++    }
+ 
+     y[ib].qs[iqs] = q;
+ 
+@@ -297,6 +312,17 @@ static __global__ void fwht_quantize_q8_1(
+                 const half2 ds = make_half2(__float2half(d), __short_as_half((short) isum));
+                 yw[col_base + ggml_cuda_ptq1_q8_word(ib_col, 8)] = *reinterpret_cast<const int32_t *>(&ds);
+             }
++        } else if constexpr (layout == GGML_CUDA_Q8_1_SB) {
++            char * sblk = (char *) vy + row * (ne0 * 9 / 8) + (i0 / QK_PTQ1_SB) * 1152;
++            const int e       = (int) (i0 % QK_PTQ1_SB);
++            const int sb_lane = e >> 5;
++            const int in_q    = e & 31;
++            ((int8_t *) sblk)[(in_q >> 4) * 512 + sb_lane * 16 + (in_q & 15)] = q;
++
++            int isum = warp_reduce_sum<QK8_1>((int) q);
++            if (iqs == 0) {
++                ((half2 *) (sblk + 1024))[sb_lane] = make_half2(__float2half(d), __short_as_half((short) isum));
++            }
+         } else {
+             block_q8_1 * y = (block_q8_1 *) vy;
+             const int64_t ib = (row * ne0 + i0) / QK8_1;
+@@ -327,6 +353,7 @@ static void fwht_quantize_launch_nt(
+         case GGML_CUDA_Q8_1_PT:       FWHT_Q_LAUNCH(GGML_CUDA_Q8_1_PT);       break;
+         case GGML_CUDA_Q8_1_SOA_ISUM: FWHT_Q_LAUNCH(GGML_CUDA_Q8_1_SOA_ISUM); break;
+         case GGML_CUDA_Q8_1_PQ2:      FWHT_Q_LAUNCH(GGML_CUDA_Q8_1_PQ2);      break;
++        case GGML_CUDA_Q8_1_SB:       FWHT_Q_LAUNCH(GGML_CUDA_Q8_1_SB);       break;
+         default:                      FWHT_Q_LAUNCH(GGML_CUDA_Q8_1_AOS);      break;
+     }
+ #undef FWHT_Q_LAUNCH
+@@ -388,6 +415,8 @@ void fwht_quantize_row_q8_1_cuda(
+     GGML_ASSERT(ne0 % n == 0 && ne0 >= ne00);
+     if (layout == GGML_CUDA_Q8_1_PT) {
+         GGML_ASSERT(ne0 % QK_PTQ1_0 == 0);
++    } else if (layout == GGML_CUDA_Q8_1_SB) {
++        GGML_ASSERT(ne0 % QK_PTQ1_SB == 0);
+     }
+     const float scale = 1.0f / sqrtf((float) n);
+     if (x_type == GGML_TYPE_F16) {
+@@ -959,6 +988,10 @@ void quantize_row_q8_1_cuda(
+         case GGML_CUDA_Q8_1_Q1B:
+             ggml_cuda_kernel_launch(quantize_q8_1<GGML_CUDA_Q8_1_Q1B>, launch_params, x, vy, ne00, s01, s02, s03, ne0, ne1, ne2_fastdiv);
+             break;
++        case GGML_CUDA_Q8_1_SB:
++            GGML_ASSERT(ne0 % QK_PTQ1_SB == 0);
++            ggml_cuda_kernel_launch(quantize_q8_1<GGML_CUDA_Q8_1_SB>, launch_params, x, vy, ne00, s01, s02, s03, ne0, ne1, ne2_fastdiv);
++            break;
+         default:
+             ggml_cuda_kernel_launch(quantize_q8_1<GGML_CUDA_Q8_1_AOS>, launch_params, x, vy, ne00, s01, s02, s03, ne0, ne1, ne2_fastdiv);
+             break;
+diff --git a/ggml/src/ggml-cuda/vecdotq.cuh b/ggml/src/ggml-cuda/vecdotq.cuh
+index 6b17623..fb13a80 100644
+--- a/ggml/src/ggml-cuda/vecdotq.cuh
++++ b/ggml/src/ggml-cuda/vecdotq.cuh
+@@ -114,6 +114,7 @@ static __device__ __forceinline__ uint32_t unpack_ksigns(const uint8_t v) {
+ 
+ #define VDR_PQ2_0_Q8_1_MMVQ 1  // one 32-element chunk at a time (same per-chunk codec as Q2_0)
+ #define VDR_PTQ1_0_Q8_1_MMVQ 4 // whole 128 block per call: keeps the byte walk uniform across lanes
++#define VDR_PTQ1_SB_Q8_1_MMVQ 1 // one 32-element chunk per lane (32 lanes = 1 warp = 1024-elem superblock)
+ #define VDR_PQ2_0_Q8_1_MMQ  2  // Q2_0 group 128: 4 32-element chunks per block
+ #define VDR_PTQ1_0_Q8_1_MMQ  2  // expanded to signed bytes in the MMQ tile loader
+ 
+@@ -842,6 +843,47 @@ static __device__ __forceinline__ float vec_dot_q2_0_q8_1(
+     return d2 * d8 * sumi;
+ }
+ 
++static __device__ __forceinline__ float vec_dot_ptq1_sb_q8_1(
++    const void * __restrict__ vbq, const block_q8_1 * __restrict__ bq8_1, const int & kbx, const int & iqs) {
++
++    const block_ptq1_sb * bq          = (const block_ptq1_sb *) vbq + kbx;
++    const block_q8_1    * bq8_1_chunk = bq8_1 + iqs;
++
++    const int e0  = iqs * 32;
++    int       bi  = e0 / 5;
++    int       rem = e0 - bi * 5;
++    uint32_t  v   = bq->qs[bi];
++    for (int r = 0; r < rem; ++r) {
++        v = (v * 3u) & 0xFFu;
++    }
++
++    int sumi = 0;
++    int sumu = 0;
++#pragma unroll
++    for (int j = 0; j < 8; ++j) {
++        uint32_t q4 = 0;
++#pragma unroll
++        for (int b = 0; b < 4; ++b) {
++            const uint32_t w = v * 3u;
++            q4 |= (w >> 8) << (8 * b);
++            if (++rem == 5) {
++                rem = 0;
++                ++bi;
++                v = (bi < 205) ? bq->qs[bi] : 0u;
++            } else {
++                v = w & 0xFFu;
++            }
++        }
++        const int u = get_int_b4(bq8_1_chunk->qs, j);
++        sumi = ggml_cuda_dp4a((int) q4, u, sumi);
++        sumu = ggml_cuda_dp4a(0x01010101, u, sumu);
++    }
++
++    const float d_sb = ptq1_sb_sub_scale(bq, iqs >> 2);
++    const float d8   = __low2float(bq8_1_chunk->ds);
++    return d_sb * d8 * (float) (sumi - sumu);
++}
++
+ #if !defined(GGML_USE_HIP)
+ // y_col0: activation column 0 base (warp-transposed layout, see ggml_cuda_ptq1_q8_word);
+ // kbx_x: absolute PTQ1 block index into vbq; kb: K-block index within the row;
+diff --git a/ggml/src/ggml-metal/ggml-metal-device.cpp b/ggml/src/ggml-metal/ggml-metal-device.cpp
+index 7521e93..b20590b 100644
+--- a/ggml/src/ggml-metal/ggml-metal-device.cpp
++++ b/ggml/src/ggml-metal/ggml-metal-device.cpp
+@@ -1185,6 +1185,12 @@ ggml_metal_pipeline_with_params ggml_metal_library_get_pipeline_mul_mv(ggml_meta
+                 }
+             }
+             break;
++        case GGML_TYPE_PTQ1_SB:
++            {
++                nsg = N_SG_PTQ1_SB;
++                nr0 = N_R0_PTQ1_SB;
++            }
++            break;
+         case GGML_TYPE_Q4_0:
+             {
+                 nsg = N_SG_Q4_0;
+@@ -1491,6 +1497,11 @@ ggml_metal_pipeline_with_params ggml_metal_library_get_pipeline_mul_mv_id(ggml_m
+                 nsg = N_SG_PTQ1_0;
+                 nr0 = N_R0_ID_PTQ1_0;
+             } break;
++        case GGML_TYPE_PTQ1_SB:
++            {
++                nsg = N_SG_PTQ1_SB;
++                nr0 = N_R0_ID_PTQ1_SB;
++            } break;
+         case GGML_TYPE_Q4_0:
+             {
+                 nsg = N_SG_Q4_0;
+diff --git a/ggml/src/ggml-metal/ggml-metal-device.m b/ggml/src/ggml-metal/ggml-metal-device.m
+index b135a3d..8ff2e47 100644
+--- a/ggml/src/ggml-metal/ggml-metal-device.m
++++ b/ggml/src/ggml-metal/ggml-metal-device.m
+@@ -1914,6 +1914,7 @@ bool ggml_metal_device_supports_op(ggml_metal_device_t dev, const struct ggml_te
+                     case GGML_TYPE_Q2_0:
+                     case GGML_TYPE_PQ2_0:
+                     case GGML_TYPE_PTQ1_0:
++                    case GGML_TYPE_PTQ1_SB:
+                     case GGML_TYPE_Q4_0:
+                     case GGML_TYPE_Q4_1:
+                     case GGML_TYPE_Q5_0:
+diff --git a/ggml/src/ggml-metal/ggml-metal-impl.h b/ggml/src/ggml-metal/ggml-metal-impl.h
+index 90b6705..a6fb032 100644
+--- a/ggml/src/ggml-metal/ggml-metal-impl.h
++++ b/ggml/src/ggml-metal/ggml-metal-impl.h
+@@ -42,6 +42,9 @@
+ #define N_R0_PTQ1_0 5
+ #define N_SG_PTQ1_0 1
+ #define N_R0_ID_PTQ1_0 4
++#define N_R0_PTQ1_SB 4
++#define N_SG_PTQ1_SB 2
++#define N_R0_ID_PTQ1_SB 4
+ 
+ #define N_R0_Q4_0 4
+ #define N_SG_Q4_0 2
+diff --git a/ggml/src/ggml-metal/ggml-metal-ops.cpp b/ggml/src/ggml-metal/ggml-metal-ops.cpp
+index c7e681d..7ddf46e 100644
+--- a/ggml/src/ggml-metal/ggml-metal-ops.cpp
++++ b/ggml/src/ggml-metal/ggml-metal-ops.cpp
+@@ -3115,6 +3115,7 @@ int ggml_metal_op_mul_mat(ggml_metal_op_t ctx, int idx) {
+            op->src[0]->type == GGML_TYPE_Q2_0 ||
+            (op->src[0]->type == GGML_TYPE_PQ2_0 && (pq2_0_ext_enable || ne11 >= 4)) ||
+            (op->src[0]->type == GGML_TYPE_PTQ1_0 && !ggml_metal_ptq1_multicol_enabled(op)) ||
++           op->src[0]->type == GGML_TYPE_PTQ1_SB ||
+            op->src[0]->type == GGML_TYPE_Q4_0 ||
+            op->src[0]->type == GGML_TYPE_Q4_1 ||
+            op->src[0]->type == GGML_TYPE_Q5_0 ||
+diff --git a/ggml/src/ggml-metal/kernels/dequantize.h b/ggml/src/ggml-metal/kernels/dequantize.h
+index b011567..139682c 100644
+--- a/ggml/src/ggml-metal/kernels/dequantize.h
++++ b/ggml/src/ggml-metal/kernels/dequantize.h
+@@ -271,6 +271,51 @@ void dequantize_ptq1_0_t4(device const block_ptq1_0 * xb, short il, thread type4
+     reg = (type4) reg_f;
+ }
+ 
++inline float ptq1_sb_sub_scale(device const block_ptq1_sb * xb, short sb) {
++    const ushort d_bits = (ushort) xb->d[0] | ((ushort) xb->d[1] << 8);
++    const float d = (float) as_type<half>(d_bits);
++    const uchar q = (xb->scales[sb >> 1] >> (4 * (sb & 1))) & 0xF;
++    if (q == 0) {
++        return 0.35f * d;
++    }
++    return (0.60f + ((float) (q - 1) / 14.0f) * 0.40f) * d;
++}
++
++inline float ptq1_sb_elem(device const block_ptq1_sb * xb, int e) {
++    const uchar b = xb->qs[e / 5];
++    const short n = e % 5;
++    return (float) ((int) ((ptq1_0_lut[b] >> (2 * n)) & 3) - 1);
++}
++
++template <typename type4x4>
++void dequantize_ptq1_sb(device const block_ptq1_sb * xb, short il, thread type4x4 & reg) {
++    const float ds = ptq1_sb_sub_scale(xb, il >> 3);
++    const int base = il * 16;
++    short bi = base / 5;
++    short n  = base % 5;
++    ushort lut = ptq1_0_lut[xb->qs[bi]];
++    float4x4 reg_f;
++    FOR_UNROLL (short j = 0; j < 16; ++j) {
++        reg_f[j / 4][j % 4] = (float) ((int) ((lut >> (2 * n)) & 3) - 1) * ds;
++        if (j < 15 && ++n == 5) {
++            n = 0;
++            lut = ptq1_0_lut[xb->qs[++bi]];
++        }
++    }
++    reg = (type4x4) reg_f;
++}
++
++template <typename type4>
++void dequantize_ptq1_sb_t4(device const block_ptq1_sb * xb, short il, thread type4 & reg) {
++    const float ds = ptq1_sb_sub_scale(xb, il >> 5);
++    const int base = il * 4;
++    float4 reg_f;
++    FOR_UNROLL (short j = 0; j < 4; ++j) {
++        reg_f[j] = ptq1_sb_elem(xb, base + j) * ds;
++    }
++    reg = (type4) reg_f;
++}
++
+ template <typename type4x4>
+ void dequantize_q4_0(device const block_q4_0 * xb, short il, thread type4x4 & reg) {
+     device const uint16_t * qs = ((device const uint16_t *)xb + 1);
+diff --git a/ggml/src/ggml-metal/kernels/mul_mm.metal b/ggml/src/ggml-metal/kernels/mul_mm.metal
+index 1ee8efc..f44a8f0 100644
+--- a/ggml/src/ggml-metal/kernels/mul_mm.metal
++++ b/ggml/src/ggml-metal/kernels/mul_mm.metal
+@@ -1041,6 +1041,7 @@ template [[host_name("kernel_mul_mm_q1_0_f32")]]    kernel mul_mm_t kernel_mul_m
+ template [[host_name("kernel_mul_mm_q2_0_f32")]]    kernel mul_mm_t kernel_mul_mm<half,   half4x4,   simdgroup_half8x8,   half,   half2x4,   simdgroup_half8x8,   block_q2_0,    4,     dequantize_q2_0,    float,  float4x4,  float, float2x4>;
+ template [[host_name("kernel_mul_mm_pq2_0_f32")]]   kernel mul_mm_t kernel_mul_mm<half,   half4x4,   simdgroup_half8x8,   half,   half2x4,   simdgroup_half8x8,   block_pq2_0,   8,     dequantize_pq2_0,   float,  float4x4,  float, float2x4>;
+ template [[host_name("kernel_mul_mm_ptq1_0_f32")]]   kernel mul_mm_t kernel_mul_mm<half,   half4x4,   simdgroup_half8x8,   half,   half2x4,   simdgroup_half8x8,   block_ptq1_0,   8,     dequantize_ptq1_0,   float,  float4x4,  float, float2x4>;
++template [[host_name("kernel_mul_mm_ptq1_sb_f32")]]  kernel mul_mm_t kernel_mul_mm<half,   half4x4,   simdgroup_half8x8,   half,   half2x4,   simdgroup_half8x8,   block_ptq1_sb, 64,     dequantize_ptq1_sb,  float,  float4x4,  float, float2x4>;
+ template [[host_name("kernel_mul_mm_q4_0_f32")]]    kernel mul_mm_t kernel_mul_mm<half,   half4x4,   simdgroup_half8x8,   half,   half2x4,   simdgroup_half8x8,   block_q4_0,    2,     dequantize_q4_0,    float,  float4x4,  float, float2x4>;
+ template [[host_name("kernel_mul_mm_q4_1_f32")]]    kernel mul_mm_t kernel_mul_mm<half,   half4x4,   simdgroup_half8x8,   half,   half2x4,   simdgroup_half8x8,   block_q4_1,    2,     dequantize_q4_1,    float,  float4x4,  float, float2x4>;
+ template [[host_name("kernel_mul_mm_q5_0_f32")]]    kernel mul_mm_t kernel_mul_mm<half,   half4x4,   simdgroup_half8x8,   half,   half2x4,   simdgroup_half8x8,   block_q5_0,    2,     dequantize_q5_0,    float,  float4x4,  float, float2x4>;
+@@ -1069,6 +1070,7 @@ template [[host_name("kernel_mul_mm_q1_0_f16")]]    kernel mul_mm_t kernel_mul_m
+ template [[host_name("kernel_mul_mm_q2_0_f16")]]    kernel mul_mm_t kernel_mul_mm<half,   half4x4,   simdgroup_half8x8,   half,   half2x4,   simdgroup_half8x8,   block_q2_0,    4,     dequantize_q2_0,    float,  float4x4,  half, half2x4>;
+ template [[host_name("kernel_mul_mm_pq2_0_f16")]]   kernel mul_mm_t kernel_mul_mm<half,   half4x4,   simdgroup_half8x8,   half,   half2x4,   simdgroup_half8x8,   block_pq2_0,   8,     dequantize_pq2_0,   float,  float4x4,  half, half2x4>;
+ template [[host_name("kernel_mul_mm_ptq1_0_f16")]]   kernel mul_mm_t kernel_mul_mm<half,   half4x4,   simdgroup_half8x8,   half,   half2x4,   simdgroup_half8x8,   block_ptq1_0,   8,     dequantize_ptq1_0,   float,  float4x4,  half, half2x4>;
++template [[host_name("kernel_mul_mm_ptq1_sb_f16")]]  kernel mul_mm_t kernel_mul_mm<half,   half4x4,   simdgroup_half8x8,   half,   half2x4,   simdgroup_half8x8,   block_ptq1_sb, 64,     dequantize_ptq1_sb,  float,  float4x4,  half, half2x4>;
+ template [[host_name("kernel_mul_mm_q4_0_f16")]]    kernel mul_mm_t kernel_mul_mm<half,   half4x4,   simdgroup_half8x8,   half,   half2x4,   simdgroup_half8x8,   block_q4_0,    2,     dequantize_q4_0,    float,  float4x4,  half, half2x4>;
+ template [[host_name("kernel_mul_mm_q4_1_f16")]]    kernel mul_mm_t kernel_mul_mm<half,   half4x4,   simdgroup_half8x8,   half,   half2x4,   simdgroup_half8x8,   block_q4_1,    2,     dequantize_q4_1,    float,  float4x4,  half, half2x4>;
+ template [[host_name("kernel_mul_mm_q5_0_f16")]]    kernel mul_mm_t kernel_mul_mm<half,   half4x4,   simdgroup_half8x8,   half,   half2x4,   simdgroup_half8x8,   block_q5_0,    2,     dequantize_q5_0,    float,  float4x4,  half, half2x4>;
+@@ -1106,6 +1108,7 @@ template [[host_name("kernel_mul_mm_id_q1_0_f32")]]    kernel mul_mm_id kernel_m
+ template [[host_name("kernel_mul_mm_id_q2_0_f32")]]    kernel mul_mm_id kernel_mul_mm_id<half,   half4x4,   simdgroup_half8x8,   half,   half2x4,   simdgroup_half8x8,   block_q2_0,    4,     dequantize_q2_0,    float,  float4x4,  float, float2x4>;
+ template [[host_name("kernel_mul_mm_id_pq2_0_f32")]]   kernel mul_mm_id kernel_mul_mm_id<half,   half4x4,   simdgroup_half8x8,   half,   half2x4,   simdgroup_half8x8,   block_pq2_0,   8,     dequantize_pq2_0,   float,  float4x4,  float, float2x4>;
+ template [[host_name("kernel_mul_mm_id_ptq1_0_f32")]]   kernel mul_mm_id kernel_mul_mm_id<half,   half4x4,   simdgroup_half8x8,   half,   half2x4,   simdgroup_half8x8,   block_ptq1_0,   8,     dequantize_ptq1_0,   float,  float4x4,  float, float2x4>;
++template [[host_name("kernel_mul_mm_id_ptq1_sb_f32")]]  kernel mul_mm_id kernel_mul_mm_id<half,   half4x4,   simdgroup_half8x8,   half,   half2x4,   simdgroup_half8x8,   block_ptq1_sb, 64,     dequantize_ptq1_sb,  float,  float4x4,  float, float2x4>;
+ template [[host_name("kernel_mul_mm_id_q4_0_f32")]]    kernel mul_mm_id kernel_mul_mm_id<half,   half4x4,   simdgroup_half8x8,   half,   half2x4,   simdgroup_half8x8,   block_q4_0,    2,     dequantize_q4_0,    float,  float4x4,  float, float2x4>;
+ template [[host_name("kernel_mul_mm_id_q4_1_f32")]]    kernel mul_mm_id kernel_mul_mm_id<half,   half4x4,   simdgroup_half8x8,   half,   half2x4,   simdgroup_half8x8,   block_q4_1,    2,     dequantize_q4_1,    float,  float4x4,  float, float2x4>;
+ template [[host_name("kernel_mul_mm_id_q5_0_f32")]]    kernel mul_mm_id kernel_mul_mm_id<half,   half4x4,   simdgroup_half8x8,   half,   half2x4,   simdgroup_half8x8,   block_q5_0,    2,     dequantize_q5_0,    float,  float4x4,  float, float2x4>;
+@@ -1138,6 +1141,7 @@ template [[host_name("kernel_mul_mm_id_q1_0_f16")]]    kernel mul_mm_id kernel_m
+ template [[host_name("kernel_mul_mm_id_q2_0_f16")]]    kernel mul_mm_id kernel_mul_mm_id<half,   half4x4,   simdgroup_half8x8,   half,   half2x4,   simdgroup_half8x8,   block_q2_0,    4,     dequantize_q2_0,    float,  float4x4,  half, half2x4>;
+ template [[host_name("kernel_mul_mm_id_pq2_0_f16")]]   kernel mul_mm_id kernel_mul_mm_id<half,   half4x4,   simdgroup_half8x8,   half,   half2x4,   simdgroup_half8x8,   block_pq2_0,   8,     dequantize_pq2_0,   float,  float4x4,  half, half2x4>;
+ template [[host_name("kernel_mul_mm_id_ptq1_0_f16")]]   kernel mul_mm_id kernel_mul_mm_id<half,   half4x4,   simdgroup_half8x8,   half,   half2x4,   simdgroup_half8x8,   block_ptq1_0,   8,     dequantize_ptq1_0,   float,  float4x4,  half, half2x4>;
++template [[host_name("kernel_mul_mm_id_ptq1_sb_f16")]]  kernel mul_mm_id kernel_mul_mm_id<half,   half4x4,   simdgroup_half8x8,   half,   half2x4,   simdgroup_half8x8,   block_ptq1_sb, 64,     dequantize_ptq1_sb,  float,  float4x4,  half, half2x4>;
+ template [[host_name("kernel_mul_mm_id_q4_0_f16")]]    kernel mul_mm_id kernel_mul_mm_id<half,   half4x4,   simdgroup_half8x8,   half,   half2x4,   simdgroup_half8x8,   block_q4_0,    2,     dequantize_q4_0,    float,  float4x4,  half, half2x4>;
+ template [[host_name("kernel_mul_mm_id_q4_1_f16")]]    kernel mul_mm_id kernel_mul_mm_id<half,   half4x4,   simdgroup_half8x8,   half,   half2x4,   simdgroup_half8x8,   block_q4_1,    2,     dequantize_q4_1,    float,  float4x4,  half, half2x4>;
+ template [[host_name("kernel_mul_mm_id_q5_0_f16")]]    kernel mul_mm_id kernel_mul_mm_id<half,   half4x4,   simdgroup_half8x8,   half,   half2x4,   simdgroup_half8x8,   block_q5_0,    2,     dequantize_q5_0,    float,  float4x4,  half, half2x4>;
+diff --git a/ggml/src/ggml-metal/kernels/mul_mv.metal b/ggml/src/ggml-metal/kernels/mul_mv.metal
+index 95abedb..cd7af05 100644
+--- a/ggml/src/ggml-metal/kernels/mul_mv.metal
++++ b/ggml/src/ggml-metal/kernels/mul_mv.metal
+@@ -1166,6 +1166,114 @@ kernel void kernel_mul_mv_ptq1_0_f32(
+     kernel_mul_mv_ptq1_0_f32_impl<N_R0_PTQ1_0, constant ggml_metal_kargs_mul_mv &>(args, src0, src1, dst, nullptr, tgpig, tiisg, sgitg);
+ }
+ 
++template<int nr0, typename args_t = ggml_metal_kargs_mul_mv>
++void kernel_mul_mv_ptq1_sb_f32_impl(
++        args_t args,
++        device const char * src0,
++        device const char * src1,
++        device       char * dst,
++        threadgroup  char * shmem,
++        uint3  tgpig,
++        ushort tiisg,
++        ushort sgitg) {
++    (void) shmem;
++    const short NSG = FC_mul_mv_nsg;
++    const int nb = args.ne00 / QK_PTQ1_SB;
++
++    const int r0 = tgpig.x;
++    const int r1 = tgpig.y;
++    const int im = tgpig.z;
++
++    const int first_row = (r0 * NSG + sgitg) * nr0;
++
++    const uint i12 = im % FC_mul_mv_ne12;
++    const uint i13 = im / FC_mul_mv_ne12;
++
++    const uint64_t offset1 = r1 * args.nb11 + i12 * args.nb12 + i13 * args.nb13;
++    device const float * y = (device const float *) (src1 + offset1);
++
++    device const block_ptq1_sb * ax[nr0];
++    for (int row = 0; row < nr0; ++row) {
++        const uint64_t offset0 = (uint64_t) min(first_row + row, args.ne01 - 1) * args.nb01
++            + (i12 / FC_mul_mv_r2) * args.nb02
++            + (i13 / FC_mul_mv_r3) * args.nb03;
++        ax[row] = (device const block_ptq1_sb *) ((device char *) src0 + offset0);
++    }
++
++    const short e0 = 32 * tiisg;
++    const short sb = tiisg >> 2;
++    const short b0 = e0 / 5;
++    const short r0_mod5 = e0 % 5;
++    const uint  sh = (uint) (2 * r0_mod5);
++
++    float yv[32];
++    float sumf[nr0] = {0.f};
++
++    for (int ib = 0; ib < nb; ++ib) {
++        device const float * yb = y + ib * QK_PTQ1_SB + e0;
++        float sumy = 0.0f;
++        FOR_UNROLL (short j = 0; j < 32; ++j) {
++            const float v = yb[j];
++            yv[j] = v;
++            sumy += v;
++        }
++
++        FOR_UNROLL (short row = 0; row < nr0; ++row) {
++            device const block_ptq1_sb * qb = ax[row] + ib;
++            device const uchar * q = qb->qs + b0;
++            const float ds = ptq1_sb_sub_scale(qb, sb);
++            const ushort l0 = ptq1_0_lut[q[0]];
++            const ushort l1 = ptq1_0_lut[q[1]];
++            const ushort l2 = ptq1_0_lut[q[2]];
++            const ushort l3 = ptq1_0_lut[q[3]];
++            const ushort l4 = ptq1_0_lut[q[4]];
++            const ushort l5 = ptq1_0_lut[q[5]];
++            const ushort l6 = ptq1_0_lut[q[6]];
++            const ulong head = (ulong) l0
++                             | ((ulong) l1 << 10)
++                             | ((ulong) l2 << 20)
++                             | ((ulong) l3 << 30)
++                             | ((ulong) l4 << 40)
++                             | ((ulong) l5 << 50)
++                             | ((ulong) l6 << 60);
++            const ulong tail = (ulong) ((l6 >> 4) & 0x3Fu)
++                             | (ulong) ((r0_mod5 == 4 ? (ptq1_0_lut[q[7]] & 3u) : 0u) << 6);
++            const ulong trits64 = (head >> sh) | (sh > 0u ? (tail << (64u - sh)) : 0ul);
++            const uint lo32 = (uint) trits64;
++            const uint hi32 = (uint) (trits64 >> 32);
++
++            float acc = 0.0f;
++            FOR_UNROLL (short j = 0; j < 16; ++j) {
++                acc = fma((float) ((lo32 >> (2 * j)) & 3u), yv[j], acc);
++            }
++            FOR_UNROLL (short j = 0; j < 16; ++j) {
++                acc = fma((float) ((hi32 >> (2 * j)) & 3u), yv[16 + j], acc);
++            }
++            sumf[row] += (acc - sumy) * ds;
++        }
++    }
++
++    device float * dst_f32 = (device float *) dst + (uint64_t) im * args.ne0 * args.ne1 + (uint64_t) r1 * args.ne0;
++    for (int row = 0; row < nr0; ++row) {
++        const float tot = simd_sum(sumf[row]);
++        if (tiisg == 0 && first_row + row < args.ne01) {
++            dst_f32[first_row + row] = tot;
++        }
++    }
++}
++
++[[host_name("kernel_mul_mv_ptq1_sb_f32")]]
++kernel void kernel_mul_mv_ptq1_sb_f32(
++        constant ggml_metal_kargs_mul_mv & args,
++        device const char * src0,
++        device const char * src1,
++        device       char * dst,
++        uint3  tgpig[[threadgroup_position_in_grid]],
++        ushort tiisg[[thread_index_in_simdgroup]],
++        ushort sgitg[[simdgroup_index_in_threadgroup]]) {
++    kernel_mul_mv_ptq1_sb_f32_impl<N_R0_PTQ1_SB, constant ggml_metal_kargs_mul_mv &>(args, src0, src1, dst, nullptr, tgpig, tiisg, sgitg);
++}
++
+ // PQ2_0 and Q2_0 dot against coefficients staged by the caller (same codec, group 128 vs 64). A byte is a base-4 fraction of
+ // 256: with u = b/256 and g_k = floor(4^k*u), exact in fp32, the floor chain peels the
+ // fields from the top down, g_1 = t_3, g_2 - 4*g_1 = t_2, g_3 - 4*g_2 = t_1 and
+@@ -1836,6 +1944,10 @@ template [[host_name("kernel_mul_mv_ext_ptq1_0_f32_r1_2")]] kernel mul_mv_ext_q4
+ template [[host_name("kernel_mul_mv_ext_ptq1_0_f32_r1_3")]] kernel mul_mv_ext_q4_f32_t kernel_mul_mv_ext_q4_f32_disp<3, block_ptq1_0, 128, dequantize_ptq1_0_t4>;
+ template [[host_name("kernel_mul_mv_ext_ptq1_0_f32_r1_4")]] kernel mul_mv_ext_q4_f32_t kernel_mul_mv_ext_q4_f32_disp<4, block_ptq1_0, 128, dequantize_ptq1_0_t4>;
+ template [[host_name("kernel_mul_mv_ext_ptq1_0_f32_r1_5")]] kernel mul_mv_ext_q4_f32_t kernel_mul_mv_ext_q4_f32_disp<5, block_ptq1_0, 128, dequantize_ptq1_0_t4>;
++template [[host_name("kernel_mul_mv_ext_ptq1_sb_f32_r1_2")]] kernel mul_mv_ext_q4_f32_t kernel_mul_mv_ext_q4_f32_disp<2, block_ptq1_sb, 1024, dequantize_ptq1_sb_t4>;
++template [[host_name("kernel_mul_mv_ext_ptq1_sb_f32_r1_3")]] kernel mul_mv_ext_q4_f32_t kernel_mul_mv_ext_q4_f32_disp<3, block_ptq1_sb, 1024, dequantize_ptq1_sb_t4>;
++template [[host_name("kernel_mul_mv_ext_ptq1_sb_f32_r1_4")]] kernel mul_mv_ext_q4_f32_t kernel_mul_mv_ext_q4_f32_disp<4, block_ptq1_sb, 1024, dequantize_ptq1_sb_t4>;
++template [[host_name("kernel_mul_mv_ext_ptq1_sb_f32_r1_5")]] kernel mul_mv_ext_q4_f32_t kernel_mul_mv_ext_q4_f32_disp<5, block_ptq1_sb, 1024, dequantize_ptq1_sb_t4>;
+ template [[host_name("kernel_mul_mv_ext_pq2_0_f32_r1_5")]]  kernel mul_mv_ext_q4_f32_t kernel_mul_mv_ext_q4_f32_disp<5, block_pq2_0,  128, dequantize_pq2_0_t4>;
+ 
+ template [[host_name("kernel_mul_mv_ext_q4_0_f32_r1_2")]]   kernel mul_mv_ext_q4_f32_t kernel_mul_mv_ext_q4_f32_disp<2, block_q4_0,   32, dequantize_q4_0_t4>;
+@@ -4360,6 +4472,7 @@ template [[host_name("kernel_mul_mv_id_q1_0_f32")]]    kernel kernel_mul_mv_id_t
+ template [[host_name("kernel_mul_mv_id_q2_0_f32")]]    kernel kernel_mul_mv_id_t kernel_mul_mv_id<mmv_fn<kernel_mul_mv_q2_0_f32_impl<N_R0_Q2_0>>>;
+ template [[host_name("kernel_mul_mv_id_pq2_0_f32")]]   kernel kernel_mul_mv_id_t kernel_mul_mv_id<mmv_fn<kernel_mul_mv_pq2_0_f32_impl<N_R0_PQ2_0>>>;
+ template [[host_name("kernel_mul_mv_id_ptq1_0_f32")]]  kernel kernel_mul_mv_id_t kernel_mul_mv_id<mmv_fn<kernel_mul_mv_ptq1_0_f32_impl<N_R0_ID_PTQ1_0>>>;
++template [[host_name("kernel_mul_mv_id_ptq1_sb_f32")]] kernel kernel_mul_mv_id_t kernel_mul_mv_id<mmv_fn<kernel_mul_mv_ptq1_sb_f32_impl<N_R0_ID_PTQ1_SB>>>;
+ template [[host_name("kernel_mul_mv_id_q4_0_f32")]]    kernel kernel_mul_mv_id_t kernel_mul_mv_id<mmv_fn<mul_vec_q_n_f32_impl<block_q4_0, N_R0_Q4_0>>>;
+ template [[host_name("kernel_mul_mv_id_q4_1_f32")]]    kernel kernel_mul_mv_id_t kernel_mul_mv_id<mmv_fn<mul_vec_q_n_f32_impl<block_q4_1, N_R0_Q4_1>>>;
+ template [[host_name("kernel_mul_mv_id_q5_0_f32")]]    kernel kernel_mul_mv_id_t kernel_mul_mv_id<mmv_fn<mul_vec_q_n_f32_impl<block_q5_0, N_R0_Q5_0>>>;
+diff --git a/ggml/src/ggml-metal/kernels/quantize.metal b/ggml/src/ggml-metal/kernels/quantize.metal
+index 13a35d4..8e6fbaf 100644
+--- a/ggml/src/ggml-metal/kernels/quantize.metal
++++ b/ggml/src/ggml-metal/kernels/quantize.metal
+@@ -144,6 +144,7 @@ template [[host_name("kernel_cpy_q1_0_f32")]] kernel cpy_q_f_t kernel_cpy_q_f32<
+ template [[host_name("kernel_cpy_q2_0_f32")]] kernel cpy_q_f_t kernel_cpy_q_f32<float4x4, block_q2_0, 4, dequantize_q2_0>;
+ template [[host_name("kernel_cpy_pq2_0_f32")]] kernel cpy_q_f_t kernel_cpy_q_f32<float4x4, block_pq2_0, 8, dequantize_pq2_0>;
+ template [[host_name("kernel_cpy_ptq1_0_f32")]] kernel cpy_q_f_t kernel_cpy_q_f32<float4x4, block_ptq1_0, 8, dequantize_ptq1_0>;
++template [[host_name("kernel_cpy_ptq1_sb_f32")]] kernel cpy_q_f_t kernel_cpy_q_f32<float4x4, block_ptq1_sb, 64, dequantize_ptq1_sb>;
+ template [[host_name("kernel_cpy_q4_0_f32")]] kernel cpy_q_f_t kernel_cpy_q_f32<float4x4, block_q4_0, 2, dequantize_q4_0>;
+ template [[host_name("kernel_cpy_q4_1_f32")]] kernel cpy_q_f_t kernel_cpy_q_f32<float4x4, block_q4_1, 2, dequantize_q4_1>;
+ template [[host_name("kernel_cpy_q5_0_f32")]] kernel cpy_q_f_t kernel_cpy_q_f32<float4x4, block_q5_0, 2, dequantize_q5_0>;
+@@ -156,6 +157,7 @@ template [[host_name("kernel_cpy_q1_0_f16")]] kernel cpy_q_f_t kernel_cpy_q_f32<
+ template [[host_name("kernel_cpy_q2_0_f16")]] kernel cpy_q_f_t kernel_cpy_q_f32<half4x4, block_q2_0, 4, dequantize_q2_0>;
+ template [[host_name("kernel_cpy_pq2_0_f16")]] kernel cpy_q_f_t kernel_cpy_q_f32<half4x4, block_pq2_0, 8, dequantize_pq2_0>;
+ template [[host_name("kernel_cpy_ptq1_0_f16")]] kernel cpy_q_f_t kernel_cpy_q_f32<half4x4, block_ptq1_0, 8, dequantize_ptq1_0>;
++template [[host_name("kernel_cpy_ptq1_sb_f16")]] kernel cpy_q_f_t kernel_cpy_q_f32<half4x4, block_ptq1_sb, 64, dequantize_ptq1_sb>;
+ template [[host_name("kernel_cpy_q4_0_f16")]] kernel cpy_q_f_t kernel_cpy_q_f32<half4x4, block_q4_0, 2, dequantize_q4_0>;
+ template [[host_name("kernel_cpy_q4_1_f16")]] kernel cpy_q_f_t kernel_cpy_q_f32<half4x4, block_q4_1, 2, dequantize_q4_1>;
+ template [[host_name("kernel_cpy_q5_0_f16")]] kernel cpy_q_f_t kernel_cpy_q_f32<half4x4, block_q5_0, 2, dequantize_q5_0>;
+@@ -342,6 +344,7 @@ template [[host_name("kernel_get_rows_q1_0")]]    kernel get_rows_q_t kernel_get
+ template [[host_name("kernel_get_rows_q2_0")]]    kernel get_rows_q_t kernel_get_rows_q<block_q2_0,    4, dequantize_q2_0>;
+ template [[host_name("kernel_get_rows_pq2_0")]]   kernel get_rows_q_t kernel_get_rows_q<block_pq2_0,   8, dequantize_pq2_0>;
+ template [[host_name("kernel_get_rows_ptq1_0")]]  kernel get_rows_q_t kernel_get_rows_q<block_ptq1_0,  8, dequantize_ptq1_0>;
++template [[host_name("kernel_get_rows_ptq1_sb")]] kernel get_rows_q_t kernel_get_rows_q<block_ptq1_sb, 64, dequantize_ptq1_sb>;
+ template [[host_name("kernel_get_rows_q4_0")]]    kernel get_rows_q_t kernel_get_rows_q<block_q4_0,    2, dequantize_q4_0>;
+ template [[host_name("kernel_get_rows_q4_1")]]    kernel get_rows_q_t kernel_get_rows_q<block_q4_1,    2, dequantize_q4_1>;
+ template [[host_name("kernel_get_rows_q5_0")]]    kernel get_rows_q_t kernel_get_rows_q<block_q5_0,    2, dequantize_q5_0>;
+diff --git a/ggml/src/ggml-quants.c b/ggml/src/ggml-quants.c
+index b70444a..cee04d3 100644
+--- a/ggml/src/ggml-quants.c
++++ b/ggml/src/ggml-quants.c
+@@ -2297,6 +2297,112 @@ size_t quantize_ptq1_0(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst
+     return nrow * row_size;
+ }
+ 
++static inline float ptq1_sb_sub_scale_ref(const block_ptq1_sb * b, int sb) {
++    const ggml_half dh = (ggml_half) ((uint16_t) b->d[0] | ((uint16_t) b->d[1] << 8));
++    const float d = GGML_FP16_TO_FP32(dh);
++    const uint8_t q = (b->scales[sb >> 1] >> (4 * (sb & 1))) & 0xF;
++    if (q == 0) {
++        return 0.35f * d;
++    }
++    return (0.60f + ((float) (q - 1) / 14.0f) * 0.40f) * d;
++}
++
++void quantize_row_ptq1_sb_ref(const float * GGML_RESTRICT x, block_ptq1_sb * GGML_RESTRICT y, int64_t k) {
++    assert(k % QK_PTQ1_SB == 0);
++    const int64_t nb = k / QK_PTQ1_SB;
++
++    for (int64_t i = 0; i < nb; ++i) {
++        const float * xb = x + i * QK_PTQ1_SB;
++        float sb_d[8];
++        float d_max = 0.0f;
++        for (int sb = 0; sb < 8; ++sb) {
++            float amax = 0.0f;
++            for (int l = 0; l < 128; ++l) {
++                const float a = fabsf(xb[sb * 128 + l]);
++                if (a > amax) amax = a;
++            }
++            sb_d[sb] = amax;
++            if (amax > d_max) d_max = amax;
++        }
++        const ggml_half dh = GGML_FP32_TO_FP16(d_max);
++        const float d = GGML_FP16_TO_FP32(dh);
++        y[i].d[0] = (uint8_t) (dh & 0xFF);
++        y[i].d[1] = (uint8_t) (dh >> 8);
++
++        uint32_t scales_u32 = 0;
++        float eff_scale[8];
++        for (int sb = 0; sb < 8; ++sb) {
++            uint8_t q = 0;
++            if (d > 0.0f) {
++                const float r = sb_d[sb] / d;
++                if (r > 0.475f) {
++                    const float norm = r < 0.60f ? 0.60f : (r > 1.0f ? 1.0f : r);
++                    int qi = (int) roundf((norm - 0.60f) / 0.40f * 14.0f) + 1;
++                    if (qi < 1) qi = 1;
++                    if (qi > 15) qi = 15;
++                    q = (uint8_t) qi;
++                }
++            }
++            scales_u32 |= ((uint32_t) q) << (4 * sb);
++            eff_scale[sb] = q == 0 ? (0.35f * d) : ((0.60f + ((float) (q - 1) / 14.0f) * 0.40f) * d);
++        }
++        y[i].scales[0] = (uint8_t) (scales_u32 & 0xFF);
++        y[i].scales[1] = (uint8_t) ((scales_u32 >> 8) & 0xFF);
++        y[i].scales[2] = (uint8_t) ((scales_u32 >> 16) & 0xFF);
++        y[i].scales[3] = (uint8_t) ((scales_u32 >> 24) & 0xFF);
++
++        for (int bi = 0; bi < 205; ++bi) {
++            const int count = (bi == 204) ? 4 : 5;
++            uint16_t q = 0;
++            for (int n = 0; n < count; ++n) {
++                const int e = bi * 5 + n;
++                const float s = eff_scale[e >> 7];
++                const float id = s > 0.0f ? 1.0f / s : 0.0f;
++                int t = (int) lroundf(xb[e] * id);
++                if (t < -1) t = -1;
++                if (t > 1) t = 1;
++                q = (uint16_t) (q * 3 + (t + 1));
++            }
++            for (int n = count; n < 5; ++n) {
++                q *= 3;
++            }
++            y[i].qs[bi] = (uint8_t) (((uint32_t) q * 256u + 242u) / 243u);
++        }
++    }
++}
++
++void dequantize_row_ptq1_sb(const block_ptq1_sb * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k) {
++    assert(k % QK_PTQ1_SB == 0);
++    const int64_t nb = k / QK_PTQ1_SB;
++    const uint8_t pow3[5] = {1, 3, 9, 27, 81};
++
++    for (int64_t i = 0; i < nb; ++i) {
++        for (int sb = 0; sb < 8; ++sb) {
++            const float s = ptq1_sb_sub_scale_ref(&x[i], sb);
++            const int e_base = sb * 128;
++            for (int l = 0; l < 128; ++l) {
++                const int e = e_base + l;
++                const uint8_t b = x[i].qs[e / 5];
++                const uint8_t q = b * pow3[e % 5];
++                const int16_t xi = ((uint16_t) q * 3) >> 8;
++                y[i * QK_PTQ1_SB + e] = (float) (xi - 1) * s;
++            }
++        }
++    }
++}
++
++size_t quantize_ptq1_sb(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrow, int64_t n_per_row, const float * quant_weights) {
++    (void)quant_weights;
++    const size_t row_size = ggml_row_size(GGML_TYPE_PTQ1_SB, n_per_row);
++    char * qrow = (char *)dst;
++    for (int64_t row = 0; row < nrow; ++row) {
++        quantize_row_ptq1_sb_ref(src, (block_ptq1_sb *)qrow, n_per_row);
++        src  += n_per_row;
++        qrow += row_size;
++    }
++    return nrow * row_size;
++}
++
+ size_t quantize_q4_0(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrow, int64_t n_per_row, const float * quant_weights) {
+     if (!quant_weights) {
+         quantize_row_q4_0_ref(src, dst, (int64_t)nrow*n_per_row);
+@@ -5688,6 +5794,16 @@ bool ggml_validate_row_data(enum ggml_type type, const void * data, size_t nbyte
+             {
+                 VALIDATE_ROW_DATA_D_F16_IMPL(block_ptq1_0, data, nb);
+             } break;
++        case GGML_TYPE_PTQ1_SB:
++            {
++                const block_ptq1_sb * b = (const block_ptq1_sb *) data;
++                for (size_t i = 0; i < nb; ++i) {
++                    const ggml_fp16_t dh = (ggml_fp16_t) ((uint16_t) b[i].d[0] | ((uint16_t) b[i].d[1] << 8));
++                    if (!validate_float(GGML_FP16_TO_FP32(dh), i)) {
++                        return false;
++                    }
++                }
++            } break;
+         case GGML_TYPE_Q4_0:
+             {
+                 VALIDATE_ROW_DATA_D_F16_IMPL(block_q4_0, data, nb);
+diff --git a/ggml/src/ggml-quants.h b/ggml/src/ggml-quants.h
+index c9e5b2f..b2ecd2e 100644
+--- a/ggml/src/ggml-quants.h
++++ b/ggml/src/ggml-quants.h
+@@ -18,6 +18,7 @@ GGML_API void quantize_row_q1_0_ref(const float * GGML_RESTRICT x, block_q1_0 *
+ GGML_API void quantize_row_q2_0_ref(const float * GGML_RESTRICT x, block_q2_0 * GGML_RESTRICT y, int64_t k);
+ GGML_API void quantize_row_pq2_0_ref(const float * GGML_RESTRICT x, block_pq2_0 * GGML_RESTRICT y, int64_t k);
+ GGML_API void quantize_row_ptq1_0_ref(const float * GGML_RESTRICT x, block_ptq1_0 * GGML_RESTRICT y, int64_t k);
++GGML_API void quantize_row_ptq1_sb_ref(const float * GGML_RESTRICT x, block_ptq1_sb * GGML_RESTRICT y, int64_t k);
+ GGML_API void quantize_row_q4_0_ref(const float * GGML_RESTRICT x, block_q4_0 * GGML_RESTRICT y, int64_t k);
+ GGML_API void quantize_row_q4_1_ref(const float * GGML_RESTRICT x, block_q4_1 * GGML_RESTRICT y, int64_t k);
+ GGML_API void quantize_row_q5_0_ref(const float * GGML_RESTRICT x, block_q5_0 * GGML_RESTRICT y, int64_t k);
+@@ -49,6 +50,7 @@ GGML_API void dequantize_row_q1_0(const block_q1_0 * GGML_RESTRICT x, float * GG
+ GGML_API void dequantize_row_q2_0(const block_q2_0 * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k);
+ GGML_API void dequantize_row_pq2_0(const block_pq2_0 * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k);
+ GGML_API void dequantize_row_ptq1_0(const block_ptq1_0 * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k);
++GGML_API void dequantize_row_ptq1_sb(const block_ptq1_sb * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k);
+ GGML_API void dequantize_row_q4_0(const block_q4_0 * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k);
+ GGML_API void dequantize_row_q4_1(const block_q4_1 * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k);
+ GGML_API void dequantize_row_q5_0(const block_q5_0 * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k);
+@@ -102,6 +104,7 @@ GGML_API size_t quantize_q1_0(const float * GGML_RESTRICT src, void * GGML_RESTR
+ GGML_API size_t quantize_q2_0(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
+ GGML_API size_t quantize_pq2_0(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
+ GGML_API size_t quantize_ptq1_0(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
++GGML_API size_t quantize_ptq1_sb(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
+ GGML_API size_t quantize_q4_0(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
+ GGML_API size_t quantize_q4_1(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
+ GGML_API size_t quantize_q5_0(const float * GGML_RESTRICT src, void * GGML_RESTRICT dst, int64_t nrows, int64_t n_per_row, const float * imatrix);
+diff --git a/ggml/src/ggml.c b/ggml/src/ggml.c
+index 972dcd3..708c791 100644
+--- a/ggml/src/ggml.c
++++ b/ggml/src/ggml.c
+@@ -714,6 +714,14 @@ static const struct ggml_type_traits type_traits[GGML_TYPE_COUNT] = {
+         .to_float                 = (ggml_to_float_t) dequantize_row_ptq1_0,
+         .from_float_ref           = (ggml_from_float_t) quantize_row_ptq1_0_ref,
+     },
++    [GGML_TYPE_PTQ1_SB] = {
++        .type_name                = "ptq1_sb",
++        .blck_size                = QK_PTQ1_SB,
++        .type_size                = sizeof(block_ptq1_sb),
++        .is_quantized             = true,
++        .to_float                 = (ggml_to_float_t) dequantize_row_ptq1_sb,
++        .from_float_ref           = (ggml_from_float_t) quantize_row_ptq1_sb_ref,
++    },
+     [GGML_TYPE_Q4_0] = {
+         .type_name                = "q4_0",
+         .blck_size                = QK4_0,
+@@ -1467,6 +1475,7 @@ enum ggml_type ggml_ftype_to_ggml_type(enum ggml_ftype ftype) {
+         case GGML_FTYPE_MOSTLY_Q2_0:          wtype = GGML_TYPE_Q2_0;  break;
+         case GGML_FTYPE_MOSTLY_PQ2_0:     wtype = GGML_TYPE_PQ2_0; break;
+         case GGML_FTYPE_MOSTLY_PTQ1_0:    wtype = GGML_TYPE_PTQ1_0; break;
++        case GGML_FTYPE_MOSTLY_PTQ1_SB:   wtype = GGML_TYPE_PTQ1_SB; break;
+         case GGML_FTYPE_MOSTLY_Q5_0:          wtype = GGML_TYPE_Q5_0;  break;
+         case GGML_FTYPE_MOSTLY_Q5_1:          wtype = GGML_TYPE_Q5_1;  break;
+         case GGML_FTYPE_MOSTLY_Q8_0:          wtype = GGML_TYPE_Q8_0;  break;
+@@ -8337,6 +8346,7 @@ size_t ggml_quantize_chunk(
+         case GGML_TYPE_Q2_0:    result = quantize_q2_0   (src + start, (char *) dst + start_row * row_size, nrows, n_per_row, imatrix); break;
+         case GGML_TYPE_PQ2_0: result = quantize_pq2_0(src + start, (char *) dst + start_row * row_size, nrows, n_per_row, imatrix); break;
+         case GGML_TYPE_PTQ1_0: result = quantize_ptq1_0(src + start, (char *) dst + start_row * row_size, nrows, n_per_row, imatrix); break;
++        case GGML_TYPE_PTQ1_SB: result = quantize_ptq1_sb(src + start, (char *) dst + start_row * row_size, nrows, n_per_row, imatrix); break;
+         case GGML_TYPE_Q4_0:    result = quantize_q4_0   (src + start, (char *) dst + start_row * row_size, nrows, n_per_row, imatrix); break;
+         case GGML_TYPE_Q4_1:    result = quantize_q4_1   (src + start, (char *) dst + start_row * row_size, nrows, n_per_row, imatrix); break;
+         case GGML_TYPE_Q5_0:    result = quantize_q5_0   (src + start, (char *) dst + start_row * row_size, nrows, n_per_row, imatrix); break;
+diff --git a/include/llama.h b/include/llama.h
+index fb91ccd..1a35091 100644
+--- a/include/llama.h
++++ b/include/llama.h
+@@ -161,6 +161,7 @@ extern "C" {
+         LLAMA_FTYPE_MOSTLY_PQ2_0     = 141, // except 1d tensors (Prism group-128 Q2_0; matches published PQ2_0 ggufs)
+         LLAMA_FTYPE_MOSTLY_PQ2_0_LEGACY = 142, // pre-rename value for the same format, still found in published ggufs
+         LLAMA_FTYPE_MOSTLY_PTQ1_0    = 143, // except 1d tensors (Prism group-128 ternary, 1.75 bpw)
++        LLAMA_FTYPE_MOSTLY_PTQ1_SB   = 144, // except 1d tensors (Prism group-1024 superblock ternary, 1.65 bpw)
+ 
+         LLAMA_FTYPE_GUESSED = 1024, // not specified in the model file
+     };
+diff --git a/src/llama-context.cpp b/src/llama-context.cpp
+index 6069f59..64418b3 100644
+--- a/src/llama-context.cpp
++++ b/src/llama-context.cpp
+@@ -1544,7 +1544,7 @@ void llama_context::set_mtp_chain(uint32_t n_steps) {
+     ggml_tensor *            src = layer.nextn.embed_tokens ? layer.nextn.embed_tokens : model.tok_embd;
+     const ggml_backend_dev_t dev = model.dev_layer(model.hparams.n_layer());
+     if (dev == nullptr || ggml_backend_dev_type(dev) == GGML_BACKEND_DEVICE_TYPE_CPU ||
+-        (src->type != GGML_TYPE_PTQ1_0 && src->type != GGML_TYPE_F16 && src->type != GGML_TYPE_F32)) {
++        (src->type != GGML_TYPE_PTQ1_0 && src->type != GGML_TYPE_PTQ1_SB && src->type != GGML_TYPE_F16 && src->type != GGML_TYPE_F32)) {
+         LLAMA_LOG_INFO("%s: MTP chain: no device copy of token_embd (%s), host lookups\n", __func__, ggml_type_name(src->type));
+         return;
+     }
+diff --git a/src/llama-model-loader.cpp b/src/llama-model-loader.cpp
+index 11d3d85..7a99b44 100644
+--- a/src/llama-model-loader.cpp
++++ b/src/llama-model-loader.cpp
+@@ -42,6 +42,7 @@ const char * llama_ftype_name(llama_ftype ftype) {
+         case LLAMA_FTYPE_MOSTLY_Q2_0:      name = LLAMA_FTYPE_PREFIX "Q2_0"; break;
+         case LLAMA_FTYPE_MOSTLY_PQ2_0: name = LLAMA_FTYPE_PREFIX "PQ2_0 - 2.13 bpw (group 128)"; break;
+         case LLAMA_FTYPE_MOSTLY_PTQ1_0: name = LLAMA_FTYPE_PREFIX "PTQ1_0 - 1.75 bpw ternary (group 128)"; break;
++        case LLAMA_FTYPE_MOSTLY_PTQ1_SB: name = LLAMA_FTYPE_PREFIX "PTQ1_SB - 1.65 bpw superblock ternary (group 1024)"; break;
+         // ggufs packed before the Q2_0_G128 -> PQ2_0 rename carry the old ftype value.
+         // They load and compute correctly; name it so it does not report as unknown.
+         case LLAMA_FTYPE_MOSTLY_PQ2_0_LEGACY: name = LLAMA_FTYPE_PREFIX "PQ2_0 - 2.13 bpw (group 128, legacy ftype)"; break;
+@@ -792,6 +793,7 @@ llama_model_loader::llama_model_loader(
+             case GGML_TYPE_Q2_0:    ftype = LLAMA_FTYPE_MOSTLY_Q2_0;    break;
+             case GGML_TYPE_PQ2_0: ftype = LLAMA_FTYPE_MOSTLY_PQ2_0; break;
+             case GGML_TYPE_PTQ1_0: ftype = LLAMA_FTYPE_MOSTLY_PTQ1_0; break;
++            case GGML_TYPE_PTQ1_SB: ftype = LLAMA_FTYPE_MOSTLY_PTQ1_SB; break;
+             default:
+                 {
+                     LLAMA_LOG_WARN("%s: unknown type %s\n", __func__, ggml_type_name(type_max));
+diff --git a/src/llama-quant.cpp b/src/llama-quant.cpp
+index 1b6ce9a..f128b92 100644
+--- a/src/llama-quant.cpp
++++ b/src/llama-quant.cpp
+@@ -433,6 +433,7 @@ static ggml_type tensor_type_fallback(quantize_state_impl & qs, const ggml_tenso
+             case GGML_TYPE_IQ4_XS:  return_type = GGML_TYPE_IQ4_NL; break;
+             case GGML_TYPE_Q2_0:
+             case GGML_TYPE_PTQ1_0:
++            case GGML_TYPE_PTQ1_SB:
+             case GGML_TYPE_PQ2_0:
+             case GGML_TYPE_Q2_K:
+             case GGML_TYPE_Q3_K:
+@@ -569,7 +570,7 @@ static ggml_type llama_tensor_get_type_impl(quantize_state_impl & qs, ggml_type
+             else if (ftype == LLAMA_FTYPE_MOSTLY_IQ3_XXS) {
+                 new_type = GGML_TYPE_IQ3_S;
+             }
+-            else if (ftype == LLAMA_FTYPE_MOSTLY_TQ1_0 || ftype == LLAMA_FTYPE_MOSTLY_TQ2_0 || ftype == LLAMA_FTYPE_MOSTLY_Q2_0 || ftype == LLAMA_FTYPE_MOSTLY_PQ2_0 || ftype == LLAMA_FTYPE_MOSTLY_PTQ1_0) {
++            else if (ftype == LLAMA_FTYPE_MOSTLY_TQ1_0 || ftype == LLAMA_FTYPE_MOSTLY_TQ2_0 || ftype == LLAMA_FTYPE_MOSTLY_Q2_0 || ftype == LLAMA_FTYPE_MOSTLY_PQ2_0 || ftype == LLAMA_FTYPE_MOSTLY_PTQ1_0 || ftype == LLAMA_FTYPE_MOSTLY_PTQ1_SB) {
+                 new_type = GGML_TYPE_Q4_K;
+             }
+         }
+@@ -925,6 +926,7 @@ ggml_type llama_ftype_get_default_type(llama_ftype ftype) {
+         case LLAMA_FTYPE_MOSTLY_Q2_0: return GGML_TYPE_Q2_0;
+         case LLAMA_FTYPE_MOSTLY_PQ2_0: return GGML_TYPE_PQ2_0;
+         case LLAMA_FTYPE_MOSTLY_PTQ1_0: return GGML_TYPE_PTQ1_0;
++        case LLAMA_FTYPE_MOSTLY_PTQ1_SB: return GGML_TYPE_PTQ1_SB;
+ 
+         case LLAMA_FTYPE_MOSTLY_MXFP4_MOE: return GGML_TYPE_MXFP4;
+ 
+@@ -1162,7 +1164,7 @@ static void llama_model_quantize_impl(const std::string & fname_inp, const std::
+         }
+ 
+         // PQ2_0 and PTQ1_0 weights are only valid in the Hadamard-rotated basis
+-        if ((metadata[i].target_type == GGML_TYPE_PQ2_0 || metadata[i].target_type == GGML_TYPE_PTQ1_0) && model->hdmd.weight_blocks.empty()) {
++        if ((metadata[i].target_type == GGML_TYPE_PQ2_0 || metadata[i].target_type == GGML_TYPE_PTQ1_0 || metadata[i].target_type == GGML_TYPE_PTQ1_SB) && model->hdmd.weight_blocks.empty()) {
+             throw std::runtime_error(format("%s requires an input model with prism.hadamard.* metadata (tensor %s)",
+                     ggml_type_name(metadata[i].target_type), metadata[i].name.c_str()));
+         }
+diff --git a/src/models/qwen35.cpp b/src/models/qwen35.cpp
+index 70908c5..1a3e885 100644
+--- a/src/models/qwen35.cpp
++++ b/src/models/qwen35.cpp
+@@ -66,8 +66,10 @@ void llama_model_qwen35::load_arch_tensors(llama_model_loader & ml) {
+         const int64_t value_dim  = head_v_dim * n_v_heads;
+         const int64_t conv_dim   = key_dim * 2 + value_dim;
+ 
++        const int64_t n_ff_il = hparams.n_ff(il);
++
+         layer.attn_norm      = create_tensor(tn(LLM_TENSOR_ATTN_NORM,      "weight", il), { n_embd }, flags);
+-        layer.attn_post_norm = create_tensor(tn(LLM_TENSOR_ATTN_POST_NORM, "weight", il), { n_embd }, flags);
++        layer.attn_post_norm = create_tensor(tn(LLM_TENSOR_ATTN_POST_NORM, "weight", il), { n_embd }, flags | (n_ff_il == 0 ? TENSOR_NOT_REQUIRED : 0));
+ 
+         if (!hparams.is_recr(il)) {
+             // Attention layers
+@@ -91,9 +93,11 @@ void llama_model_qwen35::load_arch_tensors(llama_model_loader & ml) {
+             layer.ssm_out        = create_tensor(tn(LLM_TENSOR_SSM_OUT,        "weight", il), { value_dim, n_embd }, flags);
+         }
+ 
+-        layer.ffn_gate = create_tensor(tn(LLM_TENSOR_FFN_GATE, "weight", il), {n_embd,   n_ff}, flags);
+-        layer.ffn_down = create_tensor(tn(LLM_TENSOR_FFN_DOWN, "weight", il), {  n_ff, n_embd}, flags);
+-        layer.ffn_up   = create_tensor(tn(LLM_TENSOR_FFN_UP,   "weight", il), {n_embd,   n_ff}, flags);
++        if (n_ff_il > 0) {
++            layer.ffn_gate = create_tensor(tn(LLM_TENSOR_FFN_GATE, "weight", il), {n_embd,   n_ff_il}, flags);
++            layer.ffn_down = create_tensor(tn(LLM_TENSOR_FFN_DOWN, "weight", il), {  n_ff_il, n_embd}, flags);
++            layer.ffn_up   = create_tensor(tn(LLM_TENSOR_FFN_UP,   "weight", il), {n_embd,   n_ff_il}, flags);
++        }
+     };
+ 
+     auto load_block_mtp = [&](int il) {
+@@ -108,9 +112,10 @@ void llama_model_qwen35::load_arch_tensors(llama_model_loader & ml) {
+         layer.attn_q_norm = create_tensor(tn(LLM_TENSOR_ATTN_Q_NORM, "weight", il), { n_embd_head_k }, mtp_flags);
+         layer.attn_k_norm = create_tensor(tn(LLM_TENSOR_ATTN_K_NORM, "weight", il), { n_embd_head_k }, mtp_flags);
+ 
+-        layer.ffn_gate = create_tensor(tn(LLM_TENSOR_FFN_GATE, "weight", il), {n_embd,   n_ff}, mtp_flags);
+-        layer.ffn_down = create_tensor(tn(LLM_TENSOR_FFN_DOWN, "weight", il), {  n_ff, n_embd}, mtp_flags);
+-        layer.ffn_up   = create_tensor(tn(LLM_TENSOR_FFN_UP,   "weight", il), {n_embd,   n_ff}, mtp_flags);
++        const int64_t n_ff_il = hparams.n_ff(il);
++        layer.ffn_gate = create_tensor(tn(LLM_TENSOR_FFN_GATE, "weight", il), {n_embd,   n_ff_il}, mtp_flags);
++        layer.ffn_down = create_tensor(tn(LLM_TENSOR_FFN_DOWN, "weight", il), {  n_ff_il, n_embd}, mtp_flags);
++        layer.ffn_up   = create_tensor(tn(LLM_TENSOR_FFN_UP,   "weight", il), {n_embd,   n_ff_il}, mtp_flags);
+ 
+         // NextN-specific tensors that define the MTP block.
+         layer.nextn.eh_proj          = create_tensor(tn(LLM_TENSOR_NEXTN_EH_PROJ,          "weight", il), { 2 * n_embd, n_embd }, mtp_flags);
+@@ -226,20 +231,22 @@ llama_model_qwen35::graph::graph(const llama_model & model, const llm_graph_para
+         cur = ggml_add(ctx0, cur, inpSA);
+         cb(cur, "attn_residual", il);
+ 
+-        // Save the tensor before post-attention norm for residual connection
+-        ggml_tensor * ffn_residual = cur;
++        if (model.layers[il].ffn_down != nullptr) {
++            // Save the tensor before post-attention norm for residual connection
++            ggml_tensor * ffn_residual = cur;
+ 
+-        // Post-attention norm
+-        ggml_tensor * attn_post_norm = build_norm(cur, model.layers[il].attn_post_norm, nullptr, LLM_NORM_RMS, il);
+-        cb(attn_post_norm, "attn_post_norm", il);
++            // Post-attention norm
++            ggml_tensor * attn_post_norm = build_norm(cur, model.layers[il].attn_post_norm, nullptr, LLM_NORM_RMS, il);
++            cb(attn_post_norm, "attn_post_norm", il);
+ 
+-        // Dense FFN layer - without residual connection
+-        cur = build_layer_ffn(attn_post_norm, il);
+-        cb(cur, "ffn_out", il);
++            // Dense FFN layer - without residual connection
++            cur = build_layer_ffn(attn_post_norm, il);
++            cb(cur, "ffn_out", il);
+ 
+-        // Residual connection for FFN - add to the tensor from before post_attention_layernorm
+-        cur = ggml_add(ctx0, cur, ffn_residual);
+-        cb(cur, "post_ffn", il);
++            // Residual connection for FFN - add to the tensor from before post_attention_layernorm
++            cur = ggml_add(ctx0, cur, ffn_residual);
++            cb(cur, "post_ffn", il);
++        }
+ 
+         cur = build_cvec(cur, il);
+         cb(cur, "l_out", il);
+diff --git a/tools/quantize/quantize.cpp b/tools/quantize/quantize.cpp
+index 8ba9025..97e9199 100644
+--- a/tools/quantize/quantize.cpp
++++ b/tools/quantize/quantize.cpp
+@@ -36,6 +36,7 @@ static const std::vector<quant_option> QUANT_OPTIONS = {
+     { "Q2_0",     LLAMA_FTYPE_MOSTLY_Q2_0,     " 2.25 bpw quantization (group 64)",  },
+     { "PQ2_0", LLAMA_FTYPE_MOSTLY_PQ2_0, " 2.13 bpw quantization (group 128, Prism)", },
+     { "PTQ1_0", LLAMA_FTYPE_MOSTLY_PTQ1_0, " 1.75 bpw ternarization (group 128, Prism)", },
++    { "PTQ1_SB", LLAMA_FTYPE_MOSTLY_PTQ1_SB, " 1.65 bpw superblock ternarization (group 1024, Prism)", },
+     { "Q4_0",     LLAMA_FTYPE_MOSTLY_Q4_0,     " 4.34G, +0.4685 ppl @ Llama-3-8B",  },
+     { "Q4_1",     LLAMA_FTYPE_MOSTLY_Q4_1,     " 4.78G, +0.4511 ppl @ Llama-3-8B",  },
+     { "MXFP4_MOE",LLAMA_FTYPE_MOSTLY_MXFP4_MOE," MXFP4 MoE",  },

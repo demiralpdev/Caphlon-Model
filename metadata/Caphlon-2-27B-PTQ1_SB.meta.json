@@ -1,0 +1,143 @@
+{
+  "n_vocab_yeni": 84352,
+  "merges_yeni": 83982,
+  "ozeller": {
+    "<think>": {
+      "yeni_id": 84267
+    },
+    "</think>": {
+      "yeni_id": 84268
+    },
+    "<|im_start|>": {
+      "yeni_id": 84244
+    },
+    "<|im_end|>": {
+      "yeni_id": 84245
+    },
+    "<|endoftext|>": {
+      "yeni_id": 84243
+    }
+  },
+  "tereddut_bias": [
+    {
+      "token": "ĠWait",
+      "yeni_id": 13275,
+      "bias": -1.2
+    },
+    {
+      "token": "Wait",
+      "yeni_id": 13624,
+      "bias": -1.2
+    },
+    {
+      "token": "Ġwait",
+      "yeni_id": 3633,
+      "bias": -1.2
+    },
+    {
+      "token": "wait",
+      "yeni_id": 11041,
+      "bias": -1.2
+    },
+    {
+      "token": "ĠHmm",
+      "yeni_id": 62490,
+      "bias": -1.2
+    },
+    {
+      "token": "Hmm",
+      "yeni_id": 58941,
+      "bias": -1.2
+    },
+    {
+      "token": "Ġhmm",
+      "yeni_id": 62200,
+      "bias": -1.2
+    },
+    {
+      "token": "ĠAlternatively",
+      "yeni_id": 36496,
+      "bias": -1.0
+    },
+    {
+      "token": "Alternatively",
+      "yeni_id": 64160,
+      "bias": -1.0
+    },
+    {
+      "token": "Ġalternatively",
+      "yeni_id": 53703,
+      "bias": -1.0
+    },
+    {
+      "token": "Ġrethink",
+      "yeni_id": 56978,
+      "bias": -1.0
+    },
+    {
+      "token": "Ġbacktrack",
+      "yeni_id": 67148,
+      "bias": -1.0
+    },
+    {
+      "token": "ĠOops",
+      "yeni_id": 65560,
+      "bias": -1.0
+    },
+    {
+      "token": "ĠActually",
+      "yeni_id": 32069,
+      "bias": -0.8
+    },
+    {
+      "token": "Actually",
+      "yeni_id": 46247,
+      "bias": -0.8
+    },
+    {
+      "token": "Ġactually",
+      "yeni_id": 3384,
+      "bias": -0.8
+    },
+    {
+      "token": "actually",
+      "yeni_id": 55810,
+      "bias": -0.8
+    },
+    {
+      "token": "ĠPerhaps",
+      "yeni_id": 17952,
+      "bias": -0.8
+    },
+    {
+      "token": "Ġperhaps",
+      "yeni_id": 8027,
+      "bias": -0.8
+    },
+    {
+      "token": "Perhaps",
+      "yeni_id": 29922,
+      "bias": -0.8
+    },
+    {
+      "token": "perhaps",
+      "yeni_id": 52275,
+      "bias": -0.8
+    },
+    {
+      "token": "ĠMaybe",
+      "yeni_id": 10278,
+      "bias": -0.8
+    },
+    {
+      "token": "Ġmaybe",
+      "yeni_id": 6909,
+      "bias": -0.8
+    },
+    {
+      "token": "Maybe",
+      "yeni_id": 20432,
+      "bias": -0.8
+    }
+  ]
+}

@@ -3,20 +3,20 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Caphlon — 27B LLM on an 8 GB Laptop</title>
-<meta name="description" content="Caphlon is a 6.87 GiB GGUF build of Qwen 3.8 27B produced by vocabulary merge-table reduction and hybrid-aware layer pruning, designed to run locally within 8 GB RAM." />
+<title>Caphlon 2 — 4.52 GiB Super-Block Ternary 27B LLM</title>
+<meta name="description" content="Caphlon 2 is a 4.52 GiB (1.65 bpw PTQ1_SB) standalone GGUF build of Qwen 3.8 27B derived from Ternary-Bonsai-2 via V83K vocabulary surgery, LayerTrim FFN pruning, and folded Stage-2 OPD LoRA." />
 <meta name="theme-color" content="#0d0907" />
-<meta property="og:title" content="Caphlon — 27B LLM on an 8 GB Laptop" />
-<meta property="og:description" content="Full 27B reasoning compressed to 6.87 GiB. No distillation, no student model — the full 27B topology." />
+<meta property="og:title" content="Caphlon 2 — 4.52 GiB Super-Block Ternary 27B LLM" />
+<meta property="og:description" content="All 64 hybrid 27B layers compressed to 4.52 GiB (PTQ1_SB 1.65 bpw) on Qwen 3.8 27B + Ternary-Bonsai-2. Custom CUDA Tensor Core (277.9 tok/s prefill), Metal, NEON & AVX2 kernels." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://caphlon.dev/" />
 <link rel="canonical" href="https://caphlon.dev/" />
 <meta property="og:image" content="assets/scene-canyon-back.webp" />
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="Caphlon — 27B LLM on an 8 GB Laptop" />
-<meta name="twitter:description" content="Full 27B reasoning compressed to 6.87 GiB on an 8 GB laptop." />
+<meta name="twitter:title" content="Caphlon 2 — 4.52 GiB Super-Block Ternary 27B LLM" />
+<meta name="twitter:description" content="All 64 hybrid 27B layers in 4.52 GiB (1.65 bpw PTQ1_SB). Built on Qwen 3.8 27B & Ternary-Bonsai-2." />
 <meta name="twitter:image" content="assets/scene-canyon-back.webp" />
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23c4724a'/><text x='16' y='22' font-size='18' font-family='serif' font-weight='bold' fill='%23faf7f0' text-anchor='middle'>C</text></svg>" />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23c4724a'/><text x='16' y='22' font-size='16' font-family='serif' font-weight='bold' fill='%23faf7f0' text-anchor='middle'>C2</text></svg>" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Antonio:wght@700&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=DM+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -26,17 +26,20 @@
 {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
-  "name": "Caphlon",
+  "name": "Caphlon 2",
   "applicationCategory": "AIModel",
   "operatingSystem": "Linux, macOS, Windows",
-  "description": "A 6.87 GiB GGUF build of Qwen 3.8 27B produced by vocabulary merge-table reduction and hybrid-aware layer pruning; runs on 8 GB RAM.",
-  "version": "1.0.0",
-  "datePublished": "2026-10-25",
+  "description": "A 4.52 GiB (1.65 bpw PTQ1_SB) standalone GGUF build of Qwen 3.8 27B derived from Ternary-Bonsai-2-27B via V83K vocabulary pruning, LayerTrim FFN pruning, and folded Stage-2 OPD LoRA.",
+  "version": "2.0.0",
+  "datePublished": "2026-11-22",
   "license": "https://www.apache.org/licenses/LICENSE-2.0",
   "codeRepository": "https://github.com/demiralpdev/Caphlon-Model",
   "author": { "@type": "Person", "name": "Demir Alp Gündoğmuş", "alternateName": "demiralpdev", "url": "https://github.com/demiralpdev" },
-  "isBasedOn": { "@type": "SoftwareApplication", "name": "Qwen 3.8 27B" },
-  "keywords": "Qwen 3.8 27B, GGUF, IQ2_S, llama.cpp, local LLM, lightweight 27B, 6.87 GiB"
+  "isBasedOn": [
+    { "@type": "SoftwareApplication", "name": "Qwen 3.8 27B" },
+    { "@type": "SoftwareApplication", "name": "Ternary-Bonsai-2-27B" }
+  ],
+  "keywords": "Caphlon 2, Qwen 3.8 27B, Ternary-Bonsai-2, PTQ1_SB, GGUF, 1.65 bpw, Sylvester-Hadamard, llama.cpp, 4.52 GiB"
 }
 </script>
 <style>
@@ -118,7 +121,7 @@
   .stage-svg{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:2}
   .lens-text{
     font-family:Impact,"Antonio","Arial Narrow Bold","Helvetica Inserat",sans-serif;
-    font-weight:700;font-size:380px;letter-spacing:0.015em;text-anchor:middle;text-transform:none;
+    font-weight:700;font-size:320px;letter-spacing:0.012em;text-anchor:middle;text-transform:none;
   }
   .hero-title-group{
     transition:opacity .5s cubic-bezier(.4,0,.2,1), transform .5s cubic-bezier(.4,0,.2,1);
@@ -336,7 +339,7 @@
     nav .mark{font-size:18px}
     nav .links a:not(.keep){display:none}
     .scene-hud .hud-name,.scene-hud .hud-sep{display:none}
-    text.lens-text{font-size:132px!important;letter-spacing:0.01em!important}
+    text.lens-text{font-size:112px!important;letter-spacing:0.01em!important}
     .hero-card{bottom:calc(max(26%, 140px) + 2svh)}
     .hero-card .lede{font-size:15.5px!important}
     .story-card:not(.hero-card){
@@ -360,7 +363,7 @@
 
 <!-- TOP NAVIGATION WITH REAL-TIME PROGRESS INDICATOR -->
 <nav id="site-nav">
-  <a class="mark" href="#top" aria-label="Caphlon home" id="nav-brand">Caphlon</a>
+  <a class="mark" href="#top" aria-label="Caphlon 2 home" id="nav-brand">Caphlon 2</a>
   <div class="links">
     <button class="scene-hud" id="scene-hud" type="button" aria-label="Current chapter indicator">
       <span class="hud-dot" aria-hidden="true"></span>
@@ -381,7 +384,7 @@
 <!-- FIXED HERO STAGE: 7-LAYER MOEBIUS CANYON DIORAMA -->
 <header class="hero" id="top">
   <div class="stage" id="stage">
-    <h1 class="sr-only">Caphlon</h1>
+    <h1 class="sr-only">Caphlon 2</h1>
 
     <!-- ───────── LAYER 1: 5 AUTHENTIC MOEBIUS WORLDS ───────── -->
     <!-- WORLD SCENE 0: Sandstone Arch Canyon with Caphlon Vivid Lens -->
@@ -406,7 +409,7 @@
           </filter>
 
           <mask id="text-mask">
-            <text id="svg-title-mask" class="lens-text" x="960" y="462" fill="#ffffff">Caphlon</text>
+            <text id="svg-title-mask" class="lens-text" x="960" y="462" fill="#ffffff">Caphlon 2</text>
           </mask>
         </defs>
 
@@ -418,14 +421,14 @@
         <!-- Group for title lens that fades when traversing to other worlds -->
         <g id="hero-title-group" class="hero-title-group">
           <g opacity="0.3" id="svg-title-bloom">
-            <text class="lens-text" x="960" y="462" fill="#efe8db" filter="url(#starlight-halo)">Caphlon</text>
+            <text class="lens-text" x="960" y="462" fill="#efe8db" filter="url(#starlight-halo)">Caphlon 2</text>
           </g>
           <g mask="url(#text-mask)" id="svg-title-lens">
             <g filter="url(#vibrant-boost)">
               <image class="scene-lens" href="assets/scene-canyon-back.webp" width="1920" height="1080" opacity="1"/>
             </g>
             <rect width="1920" height="1080" fill="#ffffff" opacity="0.10" style="mix-blend-mode: screen;"/>
-            <text class="lens-text" x="960" y="462" fill="none" stroke="rgba(255, 255, 255, 0.75)" stroke-width="2.5">Caphlon</text>
+            <text class="lens-text" x="960" y="462" fill="none" stroke="rgba(255, 255, 255, 0.75)" stroke-width="2.5">Caphlon 2</text>
           </g>
         </g>
       </svg>
@@ -463,11 +466,11 @@
 
       <!-- CHAPTER 0: HERO (CLEAN FLOATING TEXT, NO WHITE BOX) -->
       <section class="story-card hero-card active" id="chap-0" aria-label="Hero Overview">
-        <p class="tag">GGUF · IQ2_S · 25 OCTOBER 2026</p>
-        <p class="lede">A <em>27B</em> language model that runs on an 8&nbsp;GB laptop. No distillation, no student model — the full 27B topology, in 6.87&nbsp;GiB.</p>
+        <p class="tag">GGUF · PTQ1_SB (1.65 BPW) · BONSAI-2 + QWEN 3.8 27B · 22 NOVEMBER 2026</p>
+        <p class="lede">All 64 hybrid layers of a <em>27B</em> reasoning model compressed to <em>4.52&nbsp;GiB</em>. Built on Qwen&nbsp;3.8&nbsp;27B &amp; Ternary-Bonsai-2 via V83K vocabulary surgery, LayerTrim FFN pruning, 4-bit sub-scaled Hadamard ternary quantization, and zero-overhead folded OPD LoRA.</p>
         <div class="cta">
-          <a class="btn pri" href="https://huggingface.co/ssuasd/Caphlon-Model" target="_blank" rel="noopener">Download on Hugging Face</a>
-          <button class="btn ghost" type="button" id="btn-hero-quickstart">Quickstart</button>
+          <a class="btn pri" href="https://huggingface.co/ssuasd/Caphlon-2" target="_blank" rel="noopener">Download on Hugging Face</a>
+          <button class="btn ghost" type="button" id="btn-hero-quickstart">Quickstart &amp; Kernels</button>
         </div>
       </section>
 
@@ -478,17 +481,17 @@
           <span class="card-chap-tag">PANEL 01 // ORBIT</span>
         </div>
         <h2 class="card-h">The Numbers</h2>
-        <p class="card-desc">Full 27B reasoning compressed to 6.87 GiB via vocabulary merge-table reduction and hybrid-aware layer pruning.</p>
+        <p class="card-desc">Compressed from 5.54&nbsp;GiB Ternary-Bonsai-2 (<em>PTQ1_0</em>) down to <em>4.52&nbsp;GiB</em> (<em>PTQ1_SB</em>, 4,856,213,824&nbsp;B) while keeping all 64 hybrid Gated-Delta-Net + Full-Attention layers (23.30B active params) intact.</p>
         <div class="stats-grid">
-          <div class="stat-tile"><div class="k">6.87 GiB</div><div class="l">Full 27B GGUF file</div></div>
-          <div class="stat-tile"><div class="k">96.7%</div><div class="l">HumanEval pass@1</div></div>
-          <div class="stat-tile"><div class="k">92.9%</div><div class="l">MMLU retention</div></div>
-          <div class="stat-tile"><div class="k">+3.85%</div><div class="l">Perplexity cost</div></div>
+          <div class="stat-tile"><div class="k">4.52 GiB</div><div class="l">Standalone PTQ1_SB GGUF</div></div>
+          <div class="stat-tile"><div class="k">87.5%</div><div class="l">Mini-40 Truth &amp; Calib.</div></div>
+          <div class="stat-tile"><div class="k">80.0%</div><div class="l">GPQA-D Base (70% @22K)</div></div>
+          <div class="stat-tile"><div class="k">277.9 t/s</div><div class="l">T4 CUDA Prefill (16.3 tg32)</div></div>
         </div>
         <div class="bars" aria-hidden="true">
-          <div class="bar"><div class="t"><span>Footprint within 8 GB RAM budget</span><b>6.87 / 8.00 GiB</b></div><div class="track"><div class="fill mem" style="--v:85.9%"></div></div></div>
-          <div class="bar"><div class="t"><span>HumanEval retention vs base quant</span><b>96.7%</b></div><div class="track"><div class="fill" style="--v:96.7%"></div></div></div>
-          <div class="bar"><div class="t"><span>MMLU retention vs base quant</span><b>92.9%</b></div><div class="track"><div class="fill" style="--v:92.9%"></div></div></div>
+          <div class="bar"><div class="t"><span>Footprint within 6 GB VRAM / 8 GB RAM budget</span><b>4.52 / 6.00 GiB (−34% vs v1)</b></div><div class="track"><div class="fill mem" style="--v:75.4%"></div></div></div>
+          <div class="bar"><div class="t"><span>Unanswerable Abstain Recall (Mini-40 &amp; Base+ITI Halu-270)</span><b>100.0% (0.0% false refusal)</b></div><div class="track"><div class="fill" style="--v:100%"></div></div></div>
+          <div class="bar"><div class="t"><span>GPQA-Diamond retention vs full BF16 (89.2% ref)</span><b>89.7% (48/60 @65K) · 78.5% (42/60 @22K)</b></div><div class="track"><div class="fill" style="--v:89.7%"></div></div></div>
         </div>
       </section>
 
@@ -498,61 +501,69 @@
           <span class="card-kicker">02 · EVALUATION</span>
           <span class="card-chap-tag">PANEL 02 // BENCHMARKS</span>
         </div>
-        <h2 class="card-h">Competitive Reasoning at 1/4 the Memory</h2>
-        <p class="card-desc">Evaluated on standard code, math, and general knowledge benchmarks against leading 27B and 70B open weight models.</p>
+        <h2 class="card-h">Audited Benchmarks &amp; Upstream Lineage</h2>
+        <p class="card-desc">Every figure below is verified on our 60-RID GPQA-Diamond (<em>xhigh</em> thinking), 270-question Hallucination &amp; Calibration suite (ChemBench, HaluEval-QA, Science False-Premise, TruthfulQA), and 4×512 held-out PPL harness.</p>
         <div class="tbl-wrap">
           <table class="tbl">
             <thead>
               <tr>
-                <th>Model</th>
-                <th>Topology</th>
-                <th>Footprint</th>
-                <th style="text-align:right">MMLU-Pro</th>
-                <th style="text-align:right">GSM8K</th>
-                <th style="text-align:right">HumanEval</th>
+                <th>Build / Lineage</th>
+                <th>Format</th>
+                <th>Size</th>
+                <th style="text-align:right">GPQA-60</th>
+                <th style="text-align:right">Mini-40 / Halu-270</th>
+                <th style="text-align:right">EN / TR PPL</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td class="hi">Caphlon 27B (IQ2_S)</td>
-                <td>Qwen 3.8 Hyb.</td>
-                <td class="hi">6.87 GiB</td>
-                <td class="c hi">74.2%</td>
-                <td class="c hi">82.6%</td>
-                <td class="c hi">68.4%</td>
+                <td class="hi">Caphlon 2 (Folded OPD)</td>
+                <td>PTQ1_SB 1.65b</td>
+                <td class="hi">4.52 GiB</td>
+                <td class="c hi">42/60 (70.0% @22K)</td>
+                <td class="c hi">35/40 (87.5%) · 224/270</td>
+                <td class="c hi">7.86 / 6.88</td>
               </tr>
               <tr>
-                <td>Qwen 2.5 27B (Q4_K_M)</td>
-                <td>Dense 27B</td>
-                <td>16.8 GiB</td>
-                <td class="c">75.8%</td>
-                <td class="c">84.1%</td>
-                <td class="c">70.8%</td>
+                <td class="hi">Caphlon 2 Base (+ITI)</td>
+                <td>PTQ1_SB 1.65b</td>
+                <td class="hi">4.52 GiB</td>
+                <td class="c hi">48/60 (80.0% @65K)</td>
+                <td class="c hi">34/40 · 236/270 (87.4%)</td>
+                <td class="c hi">7.86 / 6.88</td>
               </tr>
               <tr>
-                <td>Llama 3.1 70B (IQ2_XS)</td>
-                <td>Dense 70B</td>
-                <td>24.2 GiB</td>
-                <td class="c">76.4%</td>
-                <td class="c">85.0%</td>
-                <td class="c">72.1%</td>
+                <td>Ternary-Bonsai-2 (Upstream)</td>
+                <td>PTQ1_0 1.75b</td>
+                <td>5.54 GiB</td>
+                <td class="c">51/60 (85.0% @65K)</td>
+                <td class="c">32/40 · 237/270 (87.8%)</td>
+                <td class="c">7.40 / 6.18</td>
+              </tr>
+              <tr>
+                <td>Caphlon v1 (Stock llama.cpp)</td>
+                <td>IQ2_S (L56)</td>
+                <td>6.87 GiB</td>
+                <td class="c">HumanEval 96.7%</td>
+                <td class="c">MMLU 92.9% ret.</td>
+                <td class="c">6.61 (EN40)</td>
               </tr>
             </tbody>
           </table>
         </div>
         <div class="cta" style="justify-content:flex-start">
-          <button class="btn pri" type="button" id="btn-bench-run">Run Caphlon Locally →</button>
+          <button class="btn pri" type="button" id="btn-bench-run">Build &amp; Run Caphlon 2 →</button>
         </div>
       </section>
 
       <!-- CHAPTER 3: HARDWARE & RUN IT (SAFFRON BADLANDS) -->
       <section class="story-card" id="chap-3" aria-label="03 Hardware and Quickstart">
         <div class="card-header-row">
-          <span class="card-kicker">03 · QUICKSTART & HARDWARE</span>
+          <span class="card-kicker">03 · QUICKSTART &amp; KERNELS</span>
           <span class="card-chap-tag">PANEL 03 // DEPLOY</span>
         </div>
-        <h2 class="card-h">Deploy in Under 60 Seconds</h2>
-        <p class="card-desc">Compatible with standard <a href="https://github.com/ggerganov/llama.cpp" target="_blank" rel="noopener">llama.cpp</a> and Ollama runtimes out of the box.</p>
+        <h2 class="card-h">Custom PTQ1_SB Kernels: CUDA, Metal, NEON &amp; AVX2</h2>
+        <p class="card-desc">Ships with a drop-in patch for <a href="https://github.com/PrismML-Eng/llama.cpp" target="_blank" rel="noopener">PrismML llama.cpp</a> adding Tensor Core MMQ prefill, 0-SMEM warp-register unpack, fused FWHT+Q8_1_SB norms, and 0-miss Context OS checkpointing.</p>
         <div class="term-box">
           <div class="term-bar">
             <div class="term-dots">
@@ -562,29 +573,30 @@
             </div>
             <button class="copy-btn" id="copy" type="button">COPY</button>
           </div>
-          <pre style="margin:0;overflow-x:auto"><code id="cmd">llama-cli -hf ssuasd/Caphlon-Model:caphlon-27b-iq2_s.gguf -p "Explain quantum superposition in three plain sentences."</code></pre>
+          <pre style="margin:0;overflow-x:auto"><code id="cmd">bash scripts/build-prism-llamacpp.sh &amp;&amp; bash scripts/run.sh Caphlon-2-27B-PTQ1_SB.gguf 32768 1</code></pre>
         </div>
         <ul class="hw-bullets">
-          <li><b>Memory:</b> 8 GB Unified Memory (Apple Silicon M1/M2/M3/M4) or 8 GB system RAM.</li>
-          <li><b>Backend:</b> Apple Metal, Vulkan, CUDA, or pure CPU vector extensions.</li>
-          <li><b>Throughput:</b> ~38.4 tokens/second on M3 Max, ~18.2 tokens/second on base M1 MacBook Air.</li>
+          <li><b>Memory:</b> Fits in 6 GB GPU VRAM or 8 GB Apple Silicon / system RAM (4.52 GiB weights + lossless <code>q8_0</code> KV cache).</li>
+          <li><b>Measured Throughput:</b> 277.95 tok/s prefill (<code>pp512</code>), 87.29 tok/s (<code>pp64</code>), and 16.33 tok/s decode (<code>tg32</code>) on NVIDIA Tesla T4; 3.64 tok/s full thinking on Apple M2 Air.</li>
+          <li><b>Bit-Exact Parity:</b> Verified <code>max_rel_err = 0</code> across CUDA, Apple Metal, ARM64 NEON, and x86 AVX2.</li>
         </ul>
       </section>
 
       <!-- CHAPTER 4: LICENSE & DOWNLOAD (MIDNIGHT GORGE) -->
       <section class="story-card" id="chap-4" aria-label="04 License and Open Weights">
         <div class="card-header-row">
-          <span class="card-kicker">04 · OPEN WEIGHTS</span>
+          <span class="card-kicker">04 · OPEN WEIGHTS &amp; LINEAGE</span>
           <span class="card-chap-tag">PANEL 04 // APACHE-2.0</span>
         </div>
-        <h2 class="card-h">Permissive Apache-2.0 License</h2>
-        <p class="card-desc">Caphlon is released under Apache-2.0. Free for commercial deployment, research, and offline personal agentic workflows without per-seat licensing fees.</p>
+        <h2 class="card-h">Apache-2.0 Weights, Kernel Patch &amp; Attribution</h2>
+        <p class="card-desc">Caphlon 2 is released under Apache-2.0, derived from <em>Qwen 3.8 27B</em> (Qwen Team) and <em>Ternary-Bonsai-2-27B</em> (PrismML / UkisAI). Includes the 137 KB CUDA/Metal/SIMD kernel patch and V83K anti-hesitation logit-bias metadata.</p>
         <div class="cta" style="justify-content:flex-start;margin-bottom:16px">
-          <a class="btn pri" href="https://huggingface.co/ssuasd/Caphlon-Model" target="_blank" rel="noopener">Download on Hugging Face</a>
-          <a class="btn ghost" href="https://github.com/demiralpdev/Caphlon-Model" target="_blank" rel="noopener">GitHub Repository</a>
+          <a class="btn pri" href="https://huggingface.co/ssuasd/Caphlon-2" target="_blank" rel="noopener">Caphlon 2 on Hugging Face</a>
+          <a class="btn ghost" href="https://huggingface.co/ssuasd/Caphlon-Model" target="_blank" rel="noopener">Caphlon v1 (6.87 GiB)</a>
+          <a class="btn ghost" href="https://github.com/demiralpdev/Caphlon-Model" target="_blank" rel="noopener">GitHub &amp; Patch</a>
         </div>
         <p style="margin:0;font:600 11px/1.4 var(--mono);color:var(--paper-dim)">
-          Maintained by <a href="https://github.com/demiralpdev">Demir Alp Gündoğmuş</a>. GGUF quantization built with llama.cpp b3920.
+          Maintained by <a href="https://github.com/demiralpdev">Demir Alp Gündoğmuş</a> · SHA-256: <code>fb898b3122aa12b1a0a73c3bfe3a8d7cfc213ce6646edec7692283a00cb41105</code>
         </p>
       </section>
     </main>

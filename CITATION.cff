@@ -1,27 +1,34 @@
 cff-version: 1.2.0
-message: "If you use this model, please cite it as below."
-title: "Caphlon-Model: A 6.87 GiB lightweight build of Qwen 3.8 27B"
+message: "If you use this model or its PTQ1_SB kernels, please cite it as below."
+title: "Caphlon-2: A 4.52 GiB PTQ1_SB Super-Block Ternary Build of Qwen 3.8 27B (via Ternary-Bonsai-2)"
 abstract: >-
-  A compact GGUF build of Qwen 3.8 27B (6.87 GiB, IQ2_S base) produced by
-  vocabulary merge-table reduction and hybrid-interval layer pruning.
-  Retains 92.9% of the base model's MMLU score and 96.7% HumanEval pass@1.
+  A 4.52 GiB (1.65 bpw PTQ1_SB) standalone GGUF build of Qwen 3.8 27B derived from
+  Ternary-Bonsai-2-27B via closure-preserving BPE vocabulary pruning (V83K, 84,352 tokens),
+  layer-adaptive FFN width pruning (15,456 intermediate width across all 64 layers, 23.30B
+  active parameters), 8x128 4-bit sub-scaled Sylvester-Hadamard H_1024 ternary quantization
+  (PTQ1_SB), and in-place folding of Stage-2 On-Policy Distillation (OPD) LoRA weights with
+  zero runtime overhead. Includes custom CUDA Tensor Core (277.95 tok/s pp512, 16.33 tok/s
+  tg32 on Tesla T4), Apple Metal, ARM64 NEON, and x86 AVX2 kernels.
 authors:
   - family-names: "Gündoğmuş"
     given-names: "Demir Alp"
     alias: "demiralpdev"
     website: "https://github.com/demiralpdev"
-version: "1.0.0"
-date-released: "2026-10-25"
+version: "2.0.0"
+date-released: "2026-11-22"
 license: "Apache-2.0"
 repository-code: "https://github.com/demiralpdev/Caphlon-Model"
 url: "https://caphlon.dev"
 keywords:
+  - "Caphlon-2"
   - "Qwen 3.8 27B"
+  - "Ternary-Bonsai-2"
+  - "PTQ1_SB"
   - "GGUF"
-  - "IQ2_S"
+  - "1.65 bpw"
+  - "Sylvester-Hadamard"
   - "llama.cpp"
-  - "quantized language model"
-  - "lightweight 27B"
-  - "layer pruning"
+  - "4.52 GiB"
+  - "LayerTrim"
   - "vocabulary reduction"
 type: "software"

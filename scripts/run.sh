@@ -1,39 +1,60 @@
 #!/usr/bin/env bash
-# Caphlon-Model — tuned llama.cpp server launch (measured recipe, 2026-10-25)
+# Caphlon-2 (4.52 GiB PTQ1_SB) — Zero-miss Context OS & Flash-Attention llama-server launcher
 #
-# Usage:  ./run.sh /path/to/Caphlon-Model-IQ2_S.gguf [context]
-# Requires: llama.cpp (llama-server) on PATH, built with CUDA/Metal/Vulkan.
+# Usage:  ./scripts/run.sh /path/to/Caphlon-2-27B-PTQ1_SB.gguf [context] [slots]
+# Requires: PrismML llama.cpp built with patches/prismll_ptq1_sb_cuda_metal.patch
+#           (run `bash scripts/build-prism-llamacpp.sh` first).
 set -euo pipefail
 
-MODEL="${1:?usage: run.sh <model.gguf> [ctx]}"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+MODEL="${1:?usage: run.sh <Caphlon-2-27B-PTQ1_SB.gguf> [ctx] [slots]}"
 CTX="${2:-32768}"
+SLOTS="${3:-1}"
 PORT="${PORT:-8080}"
+SERVER_BIN="${LLAMA_SERVER:-$REPO_ROOT/build-prism/llbuild/bin/llama-server}"
+
+if ! command -v "$SERVER_BIN" >/dev/null 2>&1 && [ ! -x "$SERVER_BIN" ]; then
+  SERVER_BIN="llama-server"
+fi
 
 if [ ! -f "$MODEL" ]; then
   echo "model not found: $MODEL" >&2
   exit 1
 fi
 
-# Optional KV squeeze — only when context is the binding constraint.
-# Measured gain on this model: ~152 MB. Trade-off: greedy output is not
-# byte-identical to f16 KV.
-KV_FLAGS=()
-if [ "${KV_QUANT:-0}" = "1" ]; then
-  KV_FLAGS=(--cache-type-k q8_0 --cache-type-v q4_0)
+# q8_0 KV cache is verified lossless on Caphlon-2 (EN PPL 7.8585 vs f16 7.8556; TR PPL 6.8789 vs 6.8824)
+KV_TYPE="${KV_TYPE:-q8_0}"
+
+# Optional anti-hesitation logit-bias from metadata/Caphlon-2-27B-PTQ1_SB.meta.json
+LB_FLAGS=()
+META_JSON="$REPO_ROOT/metadata/Caphlon-2-27B-PTQ1_SB.meta.json"
+if [ "${ANTI_HESITATION:-1}" = "1" ] && [ -f "$META_JSON" ] && command -v python3 >/dev/null 2>&1; then
+  LB_STR="$(python3 -c '
+import json, sys
+d = json.load(open(sys.argv[1]))
+print(",".join(f"{e[\"yeni_id\"]}:{e[\"bias\"]}" for e in d.get("tereddut_bias", [])))
+' "$META_JSON")"
+  if [ -n "$LB_STR" ]; then
+    for pair in ${LB_STR//,/ }; do
+      LB_FLAGS+=(--logit-bias "$pair")
+    done
+  fi
 fi
 
-exec llama-server \
+exec "$SERVER_BIN" \
   -m "$MODEL" \
   -ngl "${NGL:-99}" \
   -c "$CTX" \
-  -np 1 \
-  -b 4096 -ub 1024 \
-  --flash-attn on \
-  --spec-type ngram-mod \
-  --spec-ngram-mod-n-match 24 \
-  --spec-ngram-mod-n-min 48 \
-  --spec-ngram-mod-n-max 64 \
-  "${KV_FLAGS[@]}" \
+  -np "$SLOTS" \
+  -b 2048 -ub 512 \
+  -fa on \
+  -ctk "$KV_TYPE" -ctv "$KV_TYPE" \
+  --cache-ram 0 \
+  --ctx-checkpoints 32 \
+  -cms 128 \
+  --no-context-shift \
   --jinja \
+  --reasoning-format deepseek \
+  "${LB_FLAGS[@]}" \
   --host "${HOST:-127.0.0.1}" \
   --port "$PORT"

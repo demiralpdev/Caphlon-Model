@@ -97,7 +97,7 @@
 
   /* ───────── LIVING 16:9 HERO STAGE & LAYER ARCHITECTURE ───────── */
   .hero{position:fixed;inset:0;width:100%;height:100%;overflow:hidden;background:transparent;z-index:2;pointer-events:none}
-  .stage{position:absolute;bottom:0;
+  .stage{position:absolute;bottom:var(--stage-bottom, 0px);
          --stage-w:max(100vw,calc(100vh * 16 / 9));
          left:calc(50% - var(--stage-w) / 2);width:var(--stage-w);aspect-ratio:16/9}
   .stage>*{position:absolute;inset:0;width:100%;height:100%;display:block}
@@ -129,21 +129,23 @@
   }
   .hero-title-group.hide-title{opacity:0;transform:scale(0.96) translateY(-20px)}
 
-  /* ───────── LAYER 5: STORY CONTENT VIEWPORT (UNDER CAR) ───────── */
+  /* ───────── LAYER 7: STORY CONTENT VIEWPORT (ABOVE CLIFFS, UNDER TUNNEL & CAR) ───────── */
   .story-viewport{
     position:absolute;inset:0;width:100%;height:100%;
-    z-index:5;pointer-events:none;
+    z-index:7;pointer-events:none;
     display:flex;align-items:flex-start;justify-content:center;
   }
 
   /* ───────── CHAPTER 0: HERO (CLEAN FLOATING TEXT, ZERO WHITE BOX) ───────── */
   .hero-card{
     position:absolute;
-    left:50%;transform:translateX(-50%);
-    width:min(640px,90vw);
+    left:50%;
+    transform:translateX(-50%) scale(var(--hero-scale, 1));
+    transform-origin:top center;
+    width:min(650px,90vw);
     text-align:center;
-    top:auto;
-    bottom:calc(max(26.5%, 155px) + 5.5svh);
+    top:var(--hero-top, 42%);
+    bottom:auto;
     background:transparent!important;
     border:none!important;
     box-shadow:none!important;
@@ -154,15 +156,15 @@
     transition:opacity .45s ease, transform .45s ease, visibility .45s;
     will-change:opacity, transform;
   }
-  .hero-card.active{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0)}
-  .hero-card.exiting{opacity:0;transform:translateX(-50%) translateY(14px)}
+  .hero-card.active{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0) scale(var(--hero-scale, 1))}
+  .hero-card.exiting{opacity:0;transform:translateX(-50%) translateY(14px) scale(var(--hero-scale, 1))}
   .hero-card .tag{
-    font:500 11.5px/1 var(--mono);letter-spacing:.2em;text-transform:uppercase;color:var(--ochre);
-    margin:0 0 11px;text-shadow:0 1px 8px rgba(0,0,0,.9);
+    font:500 11.5px/1.2 var(--mono);letter-spacing:.2em;text-transform:uppercase;color:var(--ochre);
+    margin:0 0 10px;text-shadow:0 1px 8px rgba(0,0,0,.95);
   }
   .hero-card .lede{
-    margin:0 auto 17px;font-size:clamp(17px,2vw,21px);line-height:1.5;color:var(--paper);
-    font-variation-settings:"opsz" 24,"SOFT" 60;text-shadow:0 1px 14px rgba(0,0,0,.92),0 2px 28px rgba(0,0,0,.7);
+    margin:0 auto 16px;font-size:clamp(16px,1.85vw,20.5px);line-height:1.48;color:var(--paper);
+    font-variation-settings:"opsz" 24,"SOFT" 60;text-shadow:0 1px 14px rgba(0,0,0,.95),0 2px 28px rgba(0,0,0,.78);
     font-weight:450;
   }
   .hero-card .lede em{font-style:italic;color:var(--ochre);font-weight:600}
@@ -172,25 +174,34 @@
   /* Gives text crisp contrast without an opaque white square blocking the artwork */
   .story-card:not(.hero-card){
     position:absolute;
-    left:50%;transform:translateX(-50%);
-    top:clamp(74px, 9.5%, 115px);
+    left:50%;
+    transform:translateX(-50%) scale(var(--card-scale, 1));
+    transform-origin:top center;
+    top:var(--card-top, 78px);
     width:min(680px, 92vw);
-    max-height:calc(100% - 240px);
-    overflow-y:auto;
+    max-height:none;
+    overflow:visible;
     pointer-events:auto;
     user-select:text;
-    background:rgba(14, 9, 6, 0.82);
+    background:rgba(14, 9, 6, 0.84);
     backdrop-filter:blur(12px);
     -webkit-backdrop-filter:blur(12px);
     border:1.5px solid rgba(239, 227, 201, 0.26);
     box-shadow:0 16px 40px rgba(0, 0, 0, 0.65), 4px 4px 0 rgba(196, 114, 74, 0.35);
     color:var(--paper);
-    padding:22px 26px;
+    padding:clamp(14px, 1.8vh, 20px) clamp(16px, 2.2vw, 24px);
     border-radius:4px;
     opacity:0;visibility:hidden;
     clip-path:inset(0 100% 0 0);
-    transition:clip-path .72s cubic-bezier(.16,1,.3,1), opacity .35s ease, visibility .35s;
-    will-change:clip-path, opacity;
+    transition:clip-path .72s cubic-bezier(.16,1,.3,1), opacity .35s ease, transform .35s ease, visibility .35s;
+    will-change:clip-path, opacity, transform;
+  }
+  .story-card:not(.hero-card).instant-open{
+    transition:none!important;
+    clip-path:inset(0 0% 0 0)!important;
+  }
+  .no-trans,.no-trans *{
+    transition:none!important;
   }
   .story-card:not(.hero-card).active{
     opacity:1;visibility:visible;
@@ -286,8 +297,8 @@
   .hw-bullets{margin:0;padding-left:18px;font-size:13.5px;line-height:1.55;color:var(--paper-dim)}
   .hw-bullets b{color:var(--paper)}
 
-  /* ───────── LAYER 7: FOREGROUND CANYON CLIFFS ───────── */
-  .scene-cliffs-front-layer{position:absolute;inset:0;width:100%;height:100%;z-index:7;pointer-events:none;transition:opacity .45s ease,visibility .45s ease}
+  /* ───────── LAYER 6: FOREGROUND CANYON CLIFFS (BEHIND STORY CARDS, ABOVE WORLD BG) ───────── */
+  .scene-cliffs-front-layer{position:absolute;inset:0;width:100%;height:100%;z-index:6;pointer-events:none;transition:opacity .45s ease,visibility .45s ease}
   .scene-cliffs-front-layer.hide-cliffs{opacity:0;visibility:hidden}
   .scene-cliffs-front-layer img{width:100%;height:100%;object-fit:cover;display:block}
 
@@ -339,14 +350,11 @@
     nav .mark{font-size:18px}
     nav .links a:not(.keep){display:none}
     .scene-hud .hud-name,.scene-hud .hud-sep{display:none}
-    text.lens-text{font-size:132px!important;letter-spacing:0.01em!important}
-    .hero-card{bottom:calc(max(26%, 140px) + 2svh)}
+    text.lens-text{letter-spacing:0.01em!important}
     .hero-card .lede{font-size:15.5px!important}
     .story-card:not(.hero-card){
-      top:clamp(56px, 8.5vh, 72px);
       width:94vw;
-      max-height:calc(100% - 220px);
-      padding:16px 18px;
+      padding:14px 16px;
     }
     .stats-grid{grid-template-columns:repeat(2,1fr);gap:8px}
     .stat-tile{padding:10px 8px}
@@ -467,7 +475,7 @@
       <!-- CHAPTER 0: HERO (CLEAN FLOATING TEXT, NO WHITE BOX) -->
       <section class="story-card hero-card active" id="chap-0" aria-label="Hero Overview">
         <p class="tag">GGUF · 4.52 GiB (CAPHLON-2) &amp; 6.87 GiB (CAPHLON-1)</p>
-        <p class="lede">A <em>27B</em> language model family that runs on an 8&nbsp;GB laptop. No distillation, no student model — the full 27B topology, down to 4.52&nbsp;GiB.</p>
+        <p class="lede">A <em>27B</em> language model family that runs on an 8&nbsp;GB laptop.<br>No distillation, no student model — all 64 layers, down to <em>4.52&nbsp;GiB</em>.</p>
         <div class="cta">
           <a class="btn pri" href="https://huggingface.co/ssuasd/Caphlon-Model" target="_blank" rel="noopener">Download on Hugging Face</a>
           <button class="btn ghost" type="button" id="btn-hero-quickstart">Quickstart</button>
@@ -684,15 +692,129 @@
     document.getElementById('ws-4')
   ];
 
-  // Align mobile hero title
+  // ───────── UNIVERSAL VIEWPORT-AWARE STAGE & COLLISION-FREE LAYOUT ─────────
+  // Adapts the 16:9 stage vertical anchor, the SVG "Caphlon" lens title, the
+  // floating Chapter 0 hero card, and Chapters 1-4 story cards across every
+  // aspect ratio (16:9, 16:10, wide Chrome windows with toolbars, 21:9 ultrawide,
+  // compact laptops, tablets, and portrait phones) so text never clips under the
+  // top navbar and never overlaps the camper van (whose roof antenna sits at
+  // y = 708 / 1080 = 65.55% from the top of the 16:9 stage).
+  var stageEl = document.getElementById('stage');
+  var navEl = document.getElementById('site-nav');
+  var heroCardEl = document.getElementById('chap-0');
   var lensTexts = document.querySelectorAll('text.lens-text');
+
   function syncTitleY(){
-    var yVal = '462';
-    if (mqMobile.matches) yVal = (innerHeight < 740) ? '386' : '424';
-    for (var i = 0; i < lensTexts.length; i++) lensTexts[i].setAttribute('y', yVal);
+    var vw = window.innerWidth || docEl.clientWidth || 1280;
+    var vh = window.innerHeight || docEl.clientHeight || 720;
+    var navH = (navEl && navEl.offsetHeight) ? navEl.offsetHeight : 54;
+
+    var stageW = Math.max(vw, vh * (16 / 9));
+    var stageH = stageW * (9 / 16);
+    var overflowY = Math.max(0, stageH - vh);
+
+    // In rover-loop.webm (1920x1080), the van wheels end at y=885 (82%) and
+    // y=885..1080 (18% of stageH) is extra desert ground below the van.
+    // When viewport is wider than 16:9 (overflowY > 0), crop up to 14.5% of
+    // stageH from the bottom desert floor so the van moves down and the canyon
+    // arch stays centered instead of clipping off the top.
+    var bottomCrop = Math.min(overflowY * 0.78, stageH * 0.145);
+    var stageTop = vh - stageH + bottomCrop; // <= 0
+
+    if (stageEl) {
+      stageEl.style.setProperty('--stage-bottom', (-bottomCrop).toFixed(1) + 'px');
+    }
+
+    // Screen Y of the camper van's highest point (antenna at y = 708 / 1080 = 0.6555)
+    var vanTopScreenY = stageTop + stageH * 0.6555;
+    // Clamp vanTopScreenY inside sensible viewport bounds on extreme aspect ratios
+    var safeTopScreenY = navH + Math.max(12, vh * 0.018);
+    var safeBottomScreenY = Math.min(vh - 76, vanTopScreenY - Math.max(10, vh * 0.014));
+    var safeH = Math.max(170, safeBottomScreenY - safeTopScreenY);
+
+    // Measure natural unscaled height of the Chapter 0 hero text block
+    var cardNatH = (heroCardEl && heroCardEl.offsetHeight) ? heroCardEl.offsetHeight : 142;
+    if (cardNatH < 85) cardNatH = 142;
+
+    // Allocate vertical budget inside [safeTopScreenY .. safeBottomScreenY]
+    // between the SVG "Caphlon" title (top, including the 'p' descender tail)
+    // and the hero text+buttons (bottom).
+    // In Impact/Antonio, cap-height above baseline is ~0.72 * fontSize and the
+    // lowercase 'p' descender extends ~0.19 * fontSize below baseline (total = 0.91 * fontSize).
+    var CAP_RATIO = 0.72;
+    var DESC_RATIO = 0.19;
+    var TOTAL_GLYPH_RATIO = CAP_RATIO + DESC_RATIO; // 0.91
+
+    var minGap = Math.max(10, safeH * 0.035);
+    var targetTitleTotalScreenH = Math.min(stageH * 0.28, safeH * 0.46);
+    var availForCard = safeH - targetTitleTotalScreenH - minGap;
+
+    var heroScale = 1;
+    if (availForCard < cardNatH) {
+      targetTitleTotalScreenH = Math.max(64, Math.min(targetTitleTotalScreenH, safeH * 0.39));
+      availForCard = safeH - targetTitleTotalScreenH - minGap;
+      heroScale = Math.max(0.72, Math.min(1, availForCard / (cardNatH + 4)));
+    }
+    var cardEffH = cardNatH * heroScale;
+
+    // Convert desired total glyph height (cap + 'p' descender) into 1920x1080 SVG font-size
+    // Total horizontal width of "Caphlon" is ~3.88 * font-size.
+    var maxSvgFontByH = ((targetTitleTotalScreenH / stageH) * 1080) / TOTAL_GLYPH_RATIO;
+    var maxSvgFontByW = (((vw * 0.88) / stageW) * 1920) / 3.88;
+    var svgFontSize = Math.max(110, Math.min(380, maxSvgFontByH, maxSvgFontByW));
+
+    var actualCapScreenH = ((svgFontSize * CAP_RATIO) / 1080) * stageH;
+    var actualDescScreenH = ((svgFontSize * DESC_RATIO) / 1080) * stageH;
+    var actualTitleTotalScreenH = actualCapScreenH + actualDescScreenH;
+
+    // Center the [Title (with 'p' descender) + Gap + HeroCard] stack inside [safeTopScreenY .. safeBottomScreenY]
+    var totalUsedH = actualTitleTotalScreenH + minGap + cardEffH;
+    var freeSlack = Math.max(0, safeH - totalUsedH);
+    var titleTopScreenY = safeTopScreenY + freeSlack * 0.32;
+    var titleBaselineScreenY = titleTopScreenY + actualCapScreenH;
+    var titleBottomScreenY = titleBaselineScreenY + actualDescScreenH;
+
+    // SVG baseline Y in 1920x1080 viewBox coordinates
+    var svgBaselineY = ((titleBaselineScreenY - stageTop) / stageH) * 1080;
+    for (var i = 0; i < lensTexts.length; i++) {
+      lensTexts[i].setAttribute('y', svgBaselineY.toFixed(1));
+      lensTexts[i].style.fontSize = svgFontSize.toFixed(1) + 'px';
+    }
+
+    // Position Chapter 0 hero card in .stage coordinates below the 'p' descender
+    var cardTopScreenY = titleBottomScreenY + minGap + freeSlack * 0.22;
+    if (cardTopScreenY + cardEffH > safeBottomScreenY) {
+      cardTopScreenY = Math.max(titleBottomScreenY + 6, safeBottomScreenY - cardEffH);
+    }
+    var cardTopStageY = cardTopScreenY - stageTop;
+
+    // Position Chapters 1-4 story cards in .stage coordinates inside the safe zone:
+    // Measure each chapter card's true unscaled height so even tall tables (Benchmarks)
+    // fit 100% above the camper van without any clipping or internal scrollbar.
+    var chapAvailH = Math.max(180, safeBottomScreenY - safeTopScreenY - 8);
+    if (stageEl) {
+      stageEl.style.setProperty('--hero-top', cardTopStageY.toFixed(1) + 'px');
+      stageEl.style.setProperty('--hero-scale', heroScale.toFixed(3));
+    }
+    for (var ci = 1; ci < cards.length; ci++) {
+      var cEl = cards[ci];
+      if (!cEl) continue;
+      var cNatH = cEl.offsetHeight || cEl.scrollHeight || 460;
+      if (cNatH < 180) cNatH = 460;
+      var cScale = (chapAvailH < cNatH) ? Math.max(0.58, (chapAvailH - 4) / cNatH) : 1;
+      var cEffH = cNatH * cScale;
+      var cTopScreenY = safeTopScreenY + Math.max(2, (chapAvailH - cEffH) * 0.35);
+      var cTopStageY = cTopScreenY - stageTop;
+      cEl.style.setProperty('--card-scale', cScale.toFixed(3));
+      cEl.style.setProperty('--card-top', cTopStageY.toFixed(1) + 'px');
+    }
   }
   syncTitleY();
   addEventListener('resize', syncTitleY, {passive:true});
+  addEventListener('load', syncTitleY, {passive:true});
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(syncTitleY).catch(function(){});
+  }
 
   // Switch active world layer
   function setWorld(idx) {
@@ -971,6 +1093,30 @@
   }
 
   window.goToChapter = goToChapter;
+  window.setChapterImmediate = function(targetIdx) {
+    if (targetIdx < 0 || targetIdx >= CHAPTERS.length || targetIdx === curChap) return;
+    docEl.classList.add('no-trans');
+    if (cards[curChap]) cards[curChap].classList.remove('active');
+    curChap = targetIdx;
+    setWorld(curChap);
+    updateProgress();
+    if (titleGroup) titleGroup.classList.toggle('hide-title', curChap > 0);
+    if (heroScrollHint) heroScrollHint.classList.toggle('hide-hint', curChap > 0);
+    if (chapProgressNav) chapProgressNav.classList.toggle('show-nav', curChap > 0);
+    if (hudName) hudName.textContent = CHAPTERS[curChap].name;
+    dots.forEach(function(d, idx) { d.classList.toggle('active', idx === curChap); });
+    if (cards[curChap]) {
+      cards[curChap].classList.add('instant-open', 'active');
+    }
+    syncTitleY();
+    setTimeout(function() {
+      if (cards[curChap]) cards[curChap].classList.remove('instant-open');
+      docEl.classList.remove('no-trans');
+    }, 80);
+  };
+  var initHash = (location.hash || '').replace('#', '').toLowerCase();
+  var hashMap = { numbers: 1, benchmarks: 2, run: 3, hardware: 3, license: 4 };
+  if (hashMap[initHash]) window.setChapterImmediate(hashMap[initHash]);
   window.startTunnelTransition = function() {
     var next = (curChap + 1) % CHAPTERS.length;
     goToChapter(next);

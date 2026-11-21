@@ -3,19 +3,21 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Caphlon — 27B LLM in 4.52 GiB</title>
-<meta name="description" content="Caphlon is a compact GGUF model family built on Qwen 3.8 27B and Ternary-Bonsai-2. Caphlon-2 compresses all 64 hybrid layers to 4.52 GiB (1.65 bpw PTQ1_SB) with 80.0% GPQA-Diamond and 87.4% Halu-270." />
+<title>Caphlon — Lightest Qwen 3.8 27B GGUF Model Family (4.52 GiB Caphlon-2 &amp; 6.87 GiB Caphlon-1)</title>
+<meta name="description" content="Caphlon is the lightest Qwen 3.8 27B GGUF model family (en hafif Qwen 3.8 27B modeli). Caphlon-2 compresses all 64 hybrid layers to 4.52 GiB (1.65 bpw PTQ1_SB via Ternary-Bonsai-2) with 80.0% GPQA-Diamond &amp; 87.4% Halu-270. Runs locally on 6 GB VRAM or 8 GB RAM laptops." />
+<meta name="keywords" content="Caphlon, Caphlon-2, Caphlon-Model, lightest Qwen model, lightest Qwen 3.8 27B, en hafif Qwen modeli, en hafif 27B model, smallest 27B GGUF, 4.52 GiB 27B LLM, Qwen 3.8 27B GGUF, Ternary-Bonsai-2, PTQ1_SB, IQ2_S, run 27B on 8GB RAM, 6GB VRAM 27B LLM, local LLM, Apple Silicon 27B, llama.cpp" />
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large" />
 <meta name="theme-color" content="#0d0907" />
-<meta property="og:title" content="Caphlon — 27B LLM in 4.52 GiB" />
-<meta property="og:description" content="Full 27B reasoning compressed to 4.52 GiB (Caphlon-2, PTQ1_SB) and 6.87 GiB (Caphlon-1, IQ2_S). No distillation, no student model." />
+<meta property="og:title" content="Caphlon — Lightest Qwen 3.8 27B GGUF Model Family (4.52 GiB &amp; 6.87 GiB)" />
+<meta property="og:description" content="Full 64-layer 27B reasoning compressed to 4.52 GiB (Caphlon-2, PTQ1_SB via Ternary-Bonsai-2, 80.0% GPQA-Diamond) and 6.87 GiB (Caphlon-1, IQ2_S). Runs on 6 GB VRAM / 8 GB RAM." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://caphlon.dev/" />
 <link rel="canonical" href="https://caphlon.dev/" />
-<meta property="og:image" content="assets/scene-canyon-back.webp" />
+<meta property="og:image" content="https://caphlon.dev/assets/scene-canyon-back.webp" />
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="Caphlon — 27B LLM in 4.52 GiB" />
-<meta name="twitter:description" content="Full 27B reasoning compressed to 4.52 GiB on an 8 GB laptop." />
-<meta name="twitter:image" content="assets/scene-canyon-back.webp" />
+<meta name="twitter:title" content="Caphlon — Lightest Qwen 3.8 27B GGUF (4.52 GiB Caphlon-2)" />
+<meta name="twitter:description" content="All 64 layers of Qwen 3.8 27B in 4.52 GiB (1.65 bpw PTQ1_SB). 80.0% GPQA-Diamond &amp; 87.4% Halu-270 on an 8 GB laptop." />
+<meta name="twitter:image" content="https://caphlon.dev/assets/scene-canyon-back.webp" />
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23c4724a'/><text x='16' y='22' font-size='18' font-family='serif' font-weight='bold' fill='%23faf7f0' text-anchor='middle'>C</text></svg>" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -25,21 +27,52 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "Caphlon",
-  "applicationCategory": "AIModel",
-  "operatingSystem": "Linux, macOS, Windows",
-  "description": "Caphlon is a lightweight 27B GGUF model family (Caphlon-2 at 4.52 GiB PTQ1_SB and Caphlon-1 at 6.87 GiB IQ2_S) built on Qwen 3.8 27B and Ternary-Bonsai-2.",
-  "version": "2.0.0",
-  "datePublished": "2026-11-22",
-  "license": "https://www.apache.org/licenses/LICENSE-2.0",
-  "codeRepository": "https://github.com/demiralpdev/Caphlon-Model",
-  "author": { "@type": "Person", "name": "Demir Alp Gündoğmuş", "alternateName": "demiralpdev", "url": "https://github.com/demiralpdev" },
-  "isBasedOn": [
-    { "@type": "SoftwareApplication", "name": "Qwen 3.8 27B" },
-    { "@type": "SoftwareApplication", "name": "Ternary-Bonsai-2-27B" }
-  ],
-  "keywords": "Caphlon, Caphlon-2, Qwen 3.8 27B, Ternary-Bonsai-2, PTQ1_SB, GGUF, llama.cpp, 4.52 GiB"
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "name": "Caphlon (Caphlon-2 & Caphlon-1)",
+      "alternateName": ["Caphlon-Model", "Caphlon-2 27B", "Lightest Qwen 3.8 27B GGUF", "En Hafif Qwen 3.8 27B Modeli"],
+      "applicationCategory": "AIModel",
+      "operatingSystem": "Linux, macOS, Windows",
+      "description": "Caphlon is the lightest Qwen 3.8 27B GGUF model family (en hafif Qwen 3.8 27B modeli): Caphlon-2 compresses all 64 hybrid layers to 4.52 GiB (1.65 bpw PTQ1_SB via Ternary-Bonsai-2) achieving 80.0% GPQA-Diamond and 87.4% Halu-270; Caphlon-1 provides a 6.87 GiB IQ2_S build for stock llama.cpp.",
+      "version": "2.0.0",
+      "datePublished": "2026-10-25",
+      "dateModified": "2026-11-22",
+      "license": "https://www.apache.org/licenses/LICENSE-2.0",
+      "url": "https://caphlon.dev/",
+      "downloadUrl": "https://huggingface.co/ssuasd/Caphlon-Model",
+      "codeRepository": "https://github.com/demiralpdev/Caphlon-Model",
+      "fileSize": "4.52 GiB",
+      "memoryRequirements": "6 GB VRAM or 8 GB RAM",
+      "author": { "@type": "Person", "name": "Demir Alp Gündoğmuş", "alternateName": "demiralpdev", "url": "https://github.com/demiralpdev" },
+      "isBasedOn": [
+        { "@type": "SoftwareApplication", "name": "Qwen 3.8 27B", "url": "https://huggingface.co/Qwen" },
+        { "@type": "SoftwareApplication", "name": "Ternary-Bonsai-2-27B", "url": "https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf" }
+      ],
+      "keywords": "Caphlon, Caphlon-2, lightest Qwen model, lightest Qwen 3.8 27B, en hafif Qwen modeli, smallest 27B GGUF, 4.52 GiB 27B LLM, Ternary-Bonsai-2, PTQ1_SB, GGUF, llama.cpp"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is the lightest Qwen 3.8 27B model (En hafif Qwen modeli hangisidir)?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Caphlon-2 (4.52 GiB / 4,856,213,824 bytes, 1.65 bpw PTQ1_SB) is the lightest full 64-layer GGUF build of Qwen 3.8 27B, derived from Ternary-Bonsai-2-27B via V83K vocabulary pruning and LayerTrim FFN pruning. It runs locally on 6 GB VRAM GPUs or 8 GB RAM laptops while retaining 80.0% (48/60) GPQA-Diamond accuracy and 87.41% (236/270) Halu-270 accuracy."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How can I run a 27B LLM locally on an 8 GB RAM laptop or 6 GB VRAM GPU?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Download Caphlon-2-27B-PTQ1_SB.gguf (4.52 GiB) or Caphlon-Model-IQ2_S.gguf (6.87 GiB) from https://huggingface.co/ssuasd/Caphlon-Model and run it with llama.cpp (-ngl 99 -ctk q8_0 -ctv q8_0 -fa on)."
+          }
+        }
+      ]
+    }
+  ]
 }
 </script>
 <style>
@@ -392,7 +425,7 @@
 <!-- FIXED HERO STAGE: 7-LAYER MOEBIUS CANYON DIORAMA -->
 <header class="hero" id="top">
   <div class="stage" id="stage">
-    <h1 class="sr-only">Caphlon</h1>
+    <h1 class="sr-only">Caphlon — Lightest Qwen 3.8 27B GGUF Model Family (En Hafif Qwen 3.8 27B Yapay Zeka Modeli: Caphlon-2 4.52 GiB PTQ1_SB &amp; Caphlon-1 6.87 GiB IQ2_S)</h1>
 
     <!-- ───────── LAYER 1: 5 AUTHENTIC MOEBIUS WORLDS ───────── -->
     <!-- WORLD SCENE 0: Sandstone Arch Canyon with Caphlon Vivid Lens -->

@@ -91,7 +91,6 @@ def main() -> int:
     print(f"[HF] Repo ready: https://huggingface.co/{args.repo_id}")
 
     support_files = [
-        (repo_root / "README.md", "README.md"),
         (repo_root / "NOTICE.md", "NOTICE.md"),
         (repo_root / "LICENSE", "LICENSE"),
         (repo_root / "CITATION.cff", "CITATION.cff"),
@@ -102,6 +101,42 @@ def main() -> int:
         (repo_root / "scripts/run.sh", "scripts/run.sh"),
         (repo_root / "scripts/eval-en40.sh", "scripts/eval-en40.sh"),
     ]
+    readme_src = repo_root / "README.md"
+    if readme_src.exists():
+        raw_readme = readme_src.read_text(encoding="utf-8")
+        if not raw_readme.startswith("---\n"):
+            hf_frontmatter = (
+                "---\n"
+                "license: apache-2.0\n"
+                "base_model:\n"
+                "  - Qwen/Qwen3.8-27B\n"
+                "  - prism-ml/Ternary-Bonsai-2-27B-gguf\n"
+                "  - ukisai/Swift-Bonsai-2-GGUF\n"
+                "library_name: gguf\n"
+                "pipeline_tag: text-generation\n"
+                "language:\n"
+                "  - en\n"
+                "  - tr\n"
+                "tags:\n"
+                "  - gguf\n"
+                "  - caphlon\n"
+                "  - caphlon-2\n"
+                "  - qwen3.8\n"
+                "  - bonsai\n"
+                "  - ternary\n"
+                "  - ptq1_sb\n"
+                "  - llama.cpp\n"
+                "---\n\n"
+            )
+            raw_readme = hf_frontmatter + raw_readme
+        print(f"[HF] Uploading README.md ({len(raw_readme)} B)...")
+        api.upload_file(
+            path_or_fileobj=raw_readme.encode("utf-8"),
+            path_in_repo="README.md",
+            repo_id=args.repo_id,
+            repo_type="model",
+            commit_message="Update README.md for Caphlon-2 (4.52 GiB PTQ1_SB, 80.0% GPQA-D)",
+        )
     for src, dst in support_files:
         if src.exists():
             print(f"[HF] Uploading {dst} ({src.stat().st_size} B)...")

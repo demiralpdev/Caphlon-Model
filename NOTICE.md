@@ -15,15 +15,15 @@ PrismML / UkisAI), both distributed under the **Apache License, Version 2.0**. T
 license governs the weights and any redistribution of them; nothing in this repository narrows,
 extends, or replaces those upstream terms.
 
-Modification chain (Caphlon-2 — 4.52 GiB `PTQ1_SB`):
+Modification chain (Caphlon-2 — 4.52 GiB `PTQ1_SB`, `cand_tam_bsqrt` / `Cand_pure`):
 
 1. **Qwen 3.8 27B** (upstream base architecture, Apache-2.0) — https://huggingface.co/Qwen
 2. **Ternary-Bonsai-2-27B (`PTQ1_0`, 5.54 GiB)** (Sylvester-Hadamard $H_{1024}$ 1.75 bpw ternary intermediate, Apache-2.0) — https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf & https://huggingface.co/ukisai/Swift-Bonsai-2-GGUF
-3. **Caphlon-2 (`PTQ1_SB`, 4.52 GiB / 4,856,213,824 bytes)** changes by this project:
+3. **Caphlon-2 (`PTQ1_SB`, 4.52 GiB / 4,856,213,824 bytes, SHA-256 `ac41fcddf5da28d71198f60202c10ea37cc64d791e5f6f118f849a02579c20db`)** changes by this project:
    - BPE vocabulary closure-preserving pruning (`111,104 → 84,352` tokens, `83,982` merges) + anti-hesitation logit-bias map (`metadata/Caphlon-2-27B-PTQ1_SB.meta.json`)
-   - Layer-adaptive FFN intermediate width pruning (`17,408 → 15,456`, keeping all 64 hybrid layers and `23.30B` active parameters)
-   - `PTQ1_SB` (GGML type `144`, `1.648 bpw`) super-block ternary quantization (`8×128` 4-bit sub-scale nibbles per 1,024-weight Hadamard block)
-   - Zero-overhead in-place folding of Stage-2 On-Policy Distillation (`OPD`) LoRA (`400` tensor pairs) directly into the $H_{1024}$-rotated `PTQ1_SB` super-blocks
+   - Layer-adaptive FFN intermediate width pruning (`17,408 → 15,456` via block-influence ridge calibration, keeping all 64 hybrid layers and `23.30B` active parameters)
+   - `PTQ1_SB` (GGML type `144`, `1.648 bpw`) super-block ternary quantization (`8×128` 4-bit sub-scale nibbles per 1,024-weight Sylvester-Hadamard block)
+   - Optional Inference-Time Intervention truthfulness direction vector (`metadata/iti_mean.gguf`, `1.2 MiB`) lifting 270-question Hallucination benchmark accuracy to `87.41%` (`236/270`) with `100%` unanswerable abstain recall
    - Custom CUDA (`sm_75`/`sm_80` Tensor Core prefill + `GGML_CUDA_Q8_1_SB` 2-row decode), Apple Metal, ARM64 NEON, and x86 AVX2 kernels (`patches/prismll_ptq1_sb_cuda_metal.patch`)
 
 Modification chain (Caphlon v1 — 6.87 GiB `IQ2_S`, legacy stock `llama.cpp` build):

@@ -5,10 +5,10 @@ abstract: >-
   A 4.52 GiB (1.65 bpw PTQ1_SB) standalone GGUF build of Qwen 3.8 27B derived from
   Ternary-Bonsai-2-27B via closure-preserving BPE vocabulary pruning (V83K, 84,352 tokens),
   layer-adaptive FFN width pruning (15,456 intermediate width across all 64 layers, 23.30B
-  active parameters), 8x128 4-bit sub-scaled Sylvester-Hadamard H_1024 ternary quantization
-  (PTQ1_SB), and in-place folding of Stage-2 On-Policy Distillation (OPD) LoRA weights with
-  zero runtime overhead. Includes custom CUDA Tensor Core (277.95 tok/s pp512, 16.33 tok/s
-  tg32 on Tesla T4), Apple Metal, ARM64 NEON, and x86 AVX2 kernels.
+  active parameters), and 8x128 4-bit sub-scaled Sylvester-Hadamard H_1024 ternary
+  quantization (PTQ1_SB). Achieves 80.0% (48/60, 89.7% BF16 retention) on GPQA-Diamond and
+  87.41% (236/270, 100% abstain recall with ITI) on Halu-270. Includes custom CUDA Tensor Core
+  (277.95 tok/s pp512, 16.33 tok/s tg32 on Tesla T4), Apple Metal, ARM64 NEON, and x86 AVX2 kernels.
 authors:
   - family-names: "Gündoğmuş"
     given-names: "Demir Alp"

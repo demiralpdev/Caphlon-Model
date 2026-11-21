@@ -71,12 +71,8 @@ def main() -> int:
         default="Caphlon-2-27B-PTQ1_SB.gguf",
         help="Filename in the Hugging Face repository",
     )
-    ap.add_argument("--token", default=os.environ.get("HF_TOKEN"), help="Hugging Face write token (or set HF_TOKEN)")
+    ap.add_argument("--token", default=os.environ.get("HF_TOKEN") or None, help="Hugging Face write token (defaults to cached hf auth login token)")
     args = ap.parse_args()
-
-    if not args.token:
-        print("ERROR: HF_TOKEN is not set. Export HF_TOKEN=hf_... or pass --token hf_...", file=sys.stderr)
-        return 1
 
     try:
         from huggingface_hub import HfApi

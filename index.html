@@ -177,7 +177,7 @@
     width:min(640px,90vw);
     text-align:center;
     top:auto;
-    bottom:calc(max(29%, 175px) + 5.5svh);
+    bottom:calc(max(28.5%, 170px) + 3.8svh);
     background:transparent!important;
     border:none!important;
     box-shadow:none!important;
@@ -192,10 +192,10 @@
   .hero-card.exiting{opacity:0;transform:translateX(-50%) translateY(14px)}
   .hero-card .tag{
     font:500 12px/1.2 var(--mono);letter-spacing:.2em;text-transform:uppercase;color:var(--ochre);
-    margin:0 0 11px;text-shadow:0 1px 8px rgba(0,0,0,.95);
+    margin:0 0 8px;text-shadow:0 1px 8px rgba(0,0,0,.95);
   }
   .hero-card .lede{
-    margin:0 auto 18px;font-size:clamp(17.5px,2vw,22px);line-height:1.52;color:var(--paper);
+    margin:0 auto 14px;font-size:clamp(17px,2vw,21.5px);line-height:1.5;color:var(--paper);
     font-variation-settings:"opsz" 24,"SOFT" 60;text-shadow:0 1px 14px rgba(0,0,0,.95),0 2px 28px rgba(0,0,0,.78);
     font-weight:450;
   }
@@ -753,14 +753,14 @@
     }
 
     // Set Caphlon SVG title to its full, bold 380px presence matching the original design
-    var svgY = 462;
+    var svgY = 432;
     var svgFontSize = 380;
     if (vw < 680) {
-      svgY = (vh < 740) ? 386 : 424;
+      svgY = (vh < 740) ? 370 : 400;
       svgFontSize = 148;
     } else if (vw < 960) {
       svgFontSize = 260;
-      svgY = 448;
+      svgY = 416;
     }
     for (var i = 0; i < lensTexts.length; i++) {
       lensTexts[i].setAttribute('y', svgY.toString());

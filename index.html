@@ -173,12 +173,11 @@
   .hero-card{
     position:absolute;
     left:50%;
-    transform:translateX(-50%) scale(var(--hero-scale, 1));
-    transform-origin:top center;
-    width:min(650px,90vw);
+    transform:translateX(-50%);
+    width:min(640px,90vw);
     text-align:center;
-    top:var(--hero-top, 42%);
-    bottom:auto;
+    top:auto;
+    bottom:calc(max(29%, 175px) + 5.5svh);
     background:transparent!important;
     border:none!important;
     box-shadow:none!important;
@@ -189,14 +188,14 @@
     transition:opacity .45s ease, transform .45s ease, visibility .45s;
     will-change:opacity, transform;
   }
-  .hero-card.active{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0) scale(var(--hero-scale, 1))}
-  .hero-card.exiting{opacity:0;transform:translateX(-50%) translateY(14px) scale(var(--hero-scale, 1))}
+  .hero-card.active{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0)}
+  .hero-card.exiting{opacity:0;transform:translateX(-50%) translateY(14px)}
   .hero-card .tag{
-    font:500 11.5px/1.2 var(--mono);letter-spacing:.2em;text-transform:uppercase;color:var(--ochre);
-    margin:0 0 10px;text-shadow:0 1px 8px rgba(0,0,0,.95);
+    font:500 12px/1.2 var(--mono);letter-spacing:.2em;text-transform:uppercase;color:var(--ochre);
+    margin:0 0 11px;text-shadow:0 1px 8px rgba(0,0,0,.95);
   }
   .hero-card .lede{
-    margin:0 auto 16px;font-size:clamp(16px,1.85vw,20.5px);line-height:1.48;color:var(--paper);
+    margin:0 auto 18px;font-size:clamp(17.5px,2vw,22px);line-height:1.52;color:var(--paper);
     font-variation-settings:"opsz" 24,"SOFT" 60;text-shadow:0 1px 14px rgba(0,0,0,.95),0 2px 28px rgba(0,0,0,.78);
     font-weight:450;
   }
@@ -746,11 +745,6 @@
     var stageH = stageW * (9 / 16);
     var overflowY = Math.max(0, stageH - vh);
 
-    // In rover-loop.webm (1920x1080), the van wheels end at y=885 (82%) and
-    // y=885..1080 (18% of stageH) is extra desert ground below the van.
-    // When viewport is wider than 16:9 (overflowY > 0), crop up to 14.5% of
-    // stageH from the bottom desert floor so the van moves down and the canyon
-    // arch stays centered instead of clipping off the top.
     var bottomCrop = Math.min(overflowY * 0.78, stageH * 0.145);
     var stageTop = vh - stageH + bottomCrop; // <= 0
 
@@ -758,77 +752,27 @@
       stageEl.style.setProperty('--stage-bottom', (-bottomCrop).toFixed(1) + 'px');
     }
 
-    // Screen Y of the camper van's highest point (antenna at y = 708 / 1080 = 0.6555)
+    // Set Caphlon SVG title to its full, bold 380px presence matching the original design
+    var svgY = 462;
+    var svgFontSize = 380;
+    if (vw < 680) {
+      svgY = (vh < 740) ? 386 : 424;
+      svgFontSize = 148;
+    } else if (vw < 960) {
+      svgFontSize = 260;
+      svgY = 448;
+    }
+    for (var i = 0; i < lensTexts.length; i++) {
+      lensTexts[i].setAttribute('y', svgY.toString());
+      lensTexts[i].style.fontSize = svgFontSize + 'px';
+    }
+
+    // Chapters 1-4 story cards safe zone (above camper van, below navbar):
     var vanTopScreenY = stageTop + stageH * 0.6555;
-    // Clamp vanTopScreenY inside sensible viewport bounds on extreme aspect ratios
     var safeTopScreenY = navH + Math.max(12, vh * 0.018);
     var safeBottomScreenY = Math.min(vh - 76, vanTopScreenY - Math.max(10, vh * 0.014));
-    var safeH = Math.max(170, safeBottomScreenY - safeTopScreenY);
-
-    // Measure natural unscaled height of the Chapter 0 hero text block
-    var cardNatH = (heroCardEl && heroCardEl.offsetHeight) ? heroCardEl.offsetHeight : 142;
-    if (cardNatH < 85) cardNatH = 142;
-
-    // Allocate vertical budget inside [safeTopScreenY .. safeBottomScreenY]
-    // between the SVG "Caphlon" title (top, including the 'p' descender tail)
-    // and the hero text+buttons (bottom).
-    // In Impact/Antonio, cap-height above baseline is ~0.72 * fontSize and the
-    // lowercase 'p' descender extends ~0.19 * fontSize below baseline (total = 0.91 * fontSize).
-    var CAP_RATIO = 0.72;
-    var DESC_RATIO = 0.19;
-    var TOTAL_GLYPH_RATIO = CAP_RATIO + DESC_RATIO; // 0.91
-
-    var minGap = Math.max(10, safeH * 0.035);
-    var targetTitleTotalScreenH = Math.min(stageH * 0.28, safeH * 0.46);
-    var availForCard = safeH - targetTitleTotalScreenH - minGap;
-
-    var heroScale = 1;
-    if (availForCard < cardNatH) {
-      targetTitleTotalScreenH = Math.max(64, Math.min(targetTitleTotalScreenH, safeH * 0.39));
-      availForCard = safeH - targetTitleTotalScreenH - minGap;
-      heroScale = Math.max(0.72, Math.min(1, availForCard / (cardNatH + 4)));
-    }
-    var cardEffH = cardNatH * heroScale;
-
-    // Convert desired total glyph height (cap + 'p' descender) into 1920x1080 SVG font-size
-    // Total horizontal width of "Caphlon" is ~3.88 * font-size.
-    var maxSvgFontByH = ((targetTitleTotalScreenH / stageH) * 1080) / TOTAL_GLYPH_RATIO;
-    var maxSvgFontByW = (((vw * 0.88) / stageW) * 1920) / 3.88;
-    var svgFontSize = Math.max(110, Math.min(380, maxSvgFontByH, maxSvgFontByW));
-
-    var actualCapScreenH = ((svgFontSize * CAP_RATIO) / 1080) * stageH;
-    var actualDescScreenH = ((svgFontSize * DESC_RATIO) / 1080) * stageH;
-    var actualTitleTotalScreenH = actualCapScreenH + actualDescScreenH;
-
-    // Center the [Title (with 'p' descender) + Gap + HeroCard] stack inside [safeTopScreenY .. safeBottomScreenY]
-    var totalUsedH = actualTitleTotalScreenH + minGap + cardEffH;
-    var freeSlack = Math.max(0, safeH - totalUsedH);
-    var titleTopScreenY = safeTopScreenY + freeSlack * 0.32;
-    var titleBaselineScreenY = titleTopScreenY + actualCapScreenH;
-    var titleBottomScreenY = titleBaselineScreenY + actualDescScreenH;
-
-    // SVG baseline Y in 1920x1080 viewBox coordinates
-    var svgBaselineY = ((titleBaselineScreenY - stageTop) / stageH) * 1080;
-    for (var i = 0; i < lensTexts.length; i++) {
-      lensTexts[i].setAttribute('y', svgBaselineY.toFixed(1));
-      lensTexts[i].style.fontSize = svgFontSize.toFixed(1) + 'px';
-    }
-
-    // Position Chapter 0 hero card in .stage coordinates below the 'p' descender
-    var cardTopScreenY = titleBottomScreenY + minGap + freeSlack * 0.22;
-    if (cardTopScreenY + cardEffH > safeBottomScreenY) {
-      cardTopScreenY = Math.max(titleBottomScreenY + 6, safeBottomScreenY - cardEffH);
-    }
-    var cardTopStageY = cardTopScreenY - stageTop;
-
-    // Position Chapters 1-4 story cards in .stage coordinates inside the safe zone:
-    // Measure each chapter card's true unscaled height so even tall tables (Benchmarks)
-    // fit 100% above the camper van without any clipping or internal scrollbar.
     var chapAvailH = Math.max(180, safeBottomScreenY - safeTopScreenY - 8);
-    if (stageEl) {
-      stageEl.style.setProperty('--hero-top', cardTopStageY.toFixed(1) + 'px');
-      stageEl.style.setProperty('--hero-scale', heroScale.toFixed(3));
-    }
+
     for (var ci = 1; ci < cards.length; ci++) {
       var cEl = cards[ci];
       if (!cEl) continue;

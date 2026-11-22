@@ -336,13 +336,12 @@
 
   /* ───────── LAYER 8 & 15: ROCK TUNNEL PASSAGE ───────── */
   .tunnel-layer{position:absolute;top:-1.6%;bottom:auto;left:0;height:103.6%;width:calc(100% * 3320 / 1920);
-                pointer-events:none;will-change:transform;opacity:0;visibility:hidden;
-                transform:translate3d(-106%, 0, 0);
+                pointer-events:none;will-change:transform;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+                transform:translate3d(-108%, 0, 0);
                 filter:var(--tunnel-filter)}
-  .tunnel-layer.active{opacity:1;visibility:visible}
   .tunnel-layer.back{z-index:8}
   .tunnel-layer.front{z-index:15}
-  .tunnel-layer img{width:100%;height:100%;object-fit:fill;display:block}
+  .tunnel-layer img{width:100%;height:100%;object-fit:fill;display:block;backface-visibility:hidden;-webkit-backface-visibility:hidden}
 
   /* ───────── LAYER 10: ROVER LOOPING CAMPER VAN ───────── */
   .rover{z-index:10;object-fit:cover;filter:var(--video-filter);pointer-events:none}
@@ -930,13 +929,13 @@
   });
 
   var TUNNEL_W = 3320;
-  var START_SHIFT = -3520;
-  var MID_SHIFT = -800; // Point where tunnel fully occludes viewport center
-  var END_SHIFT = 1940;
+  var START_SHIFT = -3585.6; // -108% of 3320 (fully offscreen left, texture stays resident in GPU VRAM)
+  var MID_SHIFT = -760;      // Point where solid rock wall 100% occludes viewport center
+  var END_SHIFT = 1992;      // +60% of 3320 (fully offscreen right across all aspect ratios)
   var VIDEO_FPS = 60;
-  var TOTAL_FRAMES = 320;
-  var PX_PER_FRAME = 8.9694;
-  var ROAD_SPEED = VIDEO_FPS * PX_PER_FRAME; // 538.16 px/s
+  var PX_PER_FRAME = 9.037;  // Sub-pixel measured desert floor displacement per frame in rover-loop.webm (y=920..1040)
+  var ROAD_SPEED = VIDEO_FPS * PX_PER_FRAME; // 542.22 stage px/s (exact 1:1 ground lock)
+  var PARK_TRANSFORM = 'translate3d(-108%, 0, 0)';
 
   function runTunnelPass(targetChap, onMidpoint, onDone) {
     if (reduce) {
@@ -945,79 +944,89 @@
       return;
     }
 
-    var shiftPx = START_SHIFT;
-    var initPct = ((shiftPx / TUNNEL_W) * 100).toFixed(4);
-    var initTrans = 'translate3d(' + initPct + '%, 0, 0)';
-    tBack.style.transform = initTrans;
-    tFront.style.transform = initTrans;
-    tBack.classList.add('active');
-    tFront.classList.add('active');
+    var totalDist = END_SHIFT - START_SHIFT; // 5577.6 stage px
+    var midDist = MID_SHIFT - START_SHIFT;   // 2825.6 stage px
+    var rate = (v && v.playbackRate && v.playbackRate > 0) ? v.playbackRate : 1;
+    var speed = ROAD_SPEED * rate;
+    var durationMs = (totalDist / speed) * 1000;
+    var midDelayMs = (midDist / speed) * 1000;
+
+    var startTrans = 'translate3d(' + ((START_SHIFT / TUNNEL_W) * 100).toFixed(4) + '%, 0, 0)';
+    var endTrans   = 'translate3d(' + ((END_SHIFT   / TUNNEL_W) * 100).toFixed(4) + '%, 0, 0)';
 
     var midpointTriggered = false;
     var done = false;
-    var hasRVFC = !!(v && typeof v.requestVideoFrameCallback === 'function');
-    var vfcId = 0;
-    var lastFrame = null;
-    var lastVfcWall = performance.now();
-    var lastRafNow = performance.now();
+    var midTimer = 0;
 
-    function applyShift() {
+    function triggerMidpoint() {
+      if (midpointTriggered || done) return;
+      midpointTriggered = true;
+      // Swap background world instantaneously while 100% occluded by the rock wall
+      // so the GPU never blends two 1920x1080 filtered scenes behind the moving wall.
+      docEl.classList.add('no-trans');
+      if (onMidpoint) onMidpoint();
+      requestAnimationFrame(function() {
+        requestAnimationFrame(function() {
+          docEl.classList.remove('no-trans');
+        });
+      });
+    }
+
+    // Run tunnel translation on the GPU Compositor Thread via Web Animations API
+    // (100% linear sub-pixel interpolation at native 60/120/144Hz VSync, zero main-thread
+    // or integer frame-rounding forward/backward oscillation).
+    if (tBack && tFront && typeof tBack.animate === 'function') {
+      var keyframes = [{ transform: startTrans }, { transform: endTrans }];
+      var animOpts = { duration: durationMs, easing: 'linear', fill: 'forwards' };
+      var animBack = tBack.animate(keyframes, animOpts);
+      var animFront = tFront.animate(keyframes, animOpts);
+
+      midTimer = setTimeout(triggerMidpoint, midDelayMs);
+
+      function finishAnim() {
+        if (done) return;
+        done = true;
+        clearTimeout(midTimer);
+        if (!midpointTriggered) triggerMidpoint();
+        try { animBack.cancel(); } catch (e) {}
+        try { animFront.cancel(); } catch (e) {}
+        tBack.style.transform = PARK_TRANSFORM;
+        tFront.style.transform = PARK_TRANSFORM;
+        if (onDone) onDone();
+      }
+
+      animFront.onfinish = finishAnim;
+      animFront.oncancel = finishAnim;
+      return;
+    }
+
+    // Fallback for legacy browsers without Web Animations API: pure monotonic rAF
+    var startWall = performance.now();
+    tBack.style.transform = startTrans;
+    tFront.style.transform = startTrans;
+
+    function rafStep(now) {
+      if (done) return;
+      var elapsed = Math.max(0, (now - startWall) / 1000);
+      var shiftPx = START_SHIFT + elapsed * speed;
       var pct = (shiftPx / TUNNEL_W) * 100;
       var trans = 'translate3d(' + pct.toFixed(4) + '%, 0, 0)';
       tBack.style.transform = trans;
       tFront.style.transform = trans;
 
       if (!midpointTriggered && shiftPx >= MID_SHIFT) {
-        midpointTriggered = true;
-        if (onMidpoint) onMidpoint();
+        triggerMidpoint();
       }
-
-      var fullyExited = (shiftPx >= END_SHIFT) && (tFront.getBoundingClientRect().left >= innerWidth + 16);
-      if (fullyExited) finish();
-    }
-
-    function finish() {
-      if (done) return;
-      done = true;
-      if (hasRVFC && vfcId && v.cancelVideoFrameCallback) {
-        v.cancelVideoFrameCallback(vfcId);
+      if (shiftPx >= END_SHIFT) {
+        done = true;
+        tBack.style.transform = PARK_TRANSFORM;
+        tFront.style.transform = PARK_TRANSFORM;
+        if (onDone) onDone();
+        return;
       }
-      tBack.classList.remove('active');
-      tFront.classList.remove('active');
-      tBack.style.transform = 'translate3d(-106%, 0, 0)';
-      tFront.style.transform = 'translate3d(-106%, 0, 0)';
-      if (onDone) onDone();
+      requestAnimationFrame(rafStep);
     }
-
-    function onVideoFrame(now, meta) {
-      if (done) return;
-      lastVfcWall = performance.now();
-      var curFrame = Math.round(meta.mediaTime * VIDEO_FPS) % TOTAL_FRAMES;
-      if (lastFrame !== null) {
-        var df = curFrame - lastFrame;
-        if (df < -TOTAL_FRAMES / 2) df += TOTAL_FRAMES;
-        else if (df > TOTAL_FRAMES / 2) df -= TOTAL_FRAMES;
-        if (df > 0 && df <= 8) shiftPx += df * PX_PER_FRAME;
-      }
-      lastFrame = curFrame;
-      applyShift();
-      if (!done) vfcId = v.requestVideoFrameCallback(onVideoFrame);
-    }
-
-    function rafWatchdog(now) {
-      if (done) return;
-      var dt = (now - lastRafNow) / 1000;
-      lastRafNow = now;
-      if (dt > 0.05) dt = 0.05;
-      if (now - lastVfcWall > 90) {
-        shiftPx += ROAD_SPEED * dt;
-        applyShift();
-      }
-      if (!done) requestAnimationFrame(rafWatchdog);
-    }
-
-    if (hasRVFC) vfcId = v.requestVideoFrameCallback(onVideoFrame);
-    requestAnimationFrame(rafWatchdog);
+    requestAnimationFrame(rafStep);
   }
 
   // ───────── CHAPTER TRANSITION CONTROLLER ─────────

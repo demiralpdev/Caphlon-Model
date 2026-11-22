@@ -88,6 +88,14 @@ To make **Caphlon-2** immediately useful for local inference, benchmarking, and 
 
 ## Quickstart
 
+### 0. Quickest: Run on Ollama (One Command)
+
+```bash
+ollama run univerisr/caphlon
+```
+
+Or build and run Caphlon-2 with hardware-accelerated Sylvester-Hadamard ternary kernels:
+
 ### 1. Build the patched PrismML `llama.cpp` runtime (`CUDA` / `Metal` / `AVX2` / `NEON`)
 
 ```bash

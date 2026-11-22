@@ -31,8 +31,13 @@ META_JSON="$REPO_ROOT/metadata/Caphlon-2-27B-PTQ1_SB.meta.json"
 if [[ "${ANTI_HESITATION:-1}" == "1" ]] && [[ -f "$META_JSON" ]] && command -v python3 >/dev/null 2>&1; then
   LB_STR="$(python3 -c '
 import json, sys
-d = json.load(open(sys.argv[1]))
-print(",".join(f"{e[\"yeni_id\"]}:{e[\"bias\"]}" for e in d.get("tereddut_bias", [])))
+with open(sys.argv[1], encoding="utf-8") as fh:
+    d = json.load(fh)
+pairs = []
+for e in d.get("tereddut_bias", []):
+    b = float(e["bias"])
+    pairs.append(str(e["yeni_id"]) + (f"+{b:g}" if b >= 0 else f"{b:g}"))
+print(",".join(pairs))
 ' "$META_JSON")"
   if [[ -n "$LB_STR" ]]; then
     for pair in ${LB_STR//,/ }; do

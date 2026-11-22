@@ -3,7 +3,7 @@
 
 Uploads the winning 4.52 GiB PTQ1_SB GGUF (`Orig_PTQ1_0_cand_tam_bsqrt_15456_SB.gguf`),
 ITI steering vector (`iti_mean.gguf`), V83K metadata, kernel patch, and model card
-to Hugging Face (`ssuasd/Caphlon-2` or user-specified `--repo-id`).
+to Hugging Face (`ssuasd/Caphlon-2` or `ssuasd/Caphlon-Model`).
 
 If the local `Caphlon-2-27B-PTQ1_SB.gguf` is not yet in `colab/calisma/`, it automatically
 fetches it from `gdrive:theleaf-arsiv/colab/calisma/gecici/Orig_PTQ1_0_cand_tam_bsqrt_15456_SB.gguf`
@@ -24,6 +24,12 @@ from pathlib import Path
 EXPECTED_BYTES = 4856213824
 EXPECTED_SHA256 = "ac41fcddf5da28d71198f60202c10ea37cc64d791e5f6f118f849a02579c20db"
 GDRIVE_SRC = "gdrive:theleaf-arsiv/colab/calisma/gecici/Orig_PTQ1_0_cand_tam_bsqrt_15456_SB.gguf"
+CANONICAL_GGUF_PATH = Path("/Users/demir/Desktop/theleaf/colab/calisma/Caphlon-2-27B-PTQ1_SB.gguf")
+TARGET_GGUF_NAME = "Caphlon-2-27B-PTQ1_SB.gguf"
+ALLOWED_REPOS = {
+    "ssuasd/Caphlon-2": "ssuasd/Caphlon-2",
+    "ssuasd/Caphlon-Model": "ssuasd/Caphlon-Model",
+}
 
 
 def sha256_file(p: Path) -> str:
@@ -34,12 +40,13 @@ def sha256_file(p: Path) -> str:
     return h.hexdigest()
 
 
-def ensure_cand_pure_gguf(gguf_path: Path) -> Path:
+def ensure_cand_pure_gguf() -> Path:
+    gguf_path = CANONICAL_GGUF_PATH
     if not gguf_path.exists() or gguf_path.stat().st_size != EXPECTED_BYTES:
         print(f"[RCLONE] Fetching Cand_pure (cand_tam_bsqrt) from {GDRIVE_SRC} -> {gguf_path}...")
         gguf_path.parent.mkdir(parents=True, exist_ok=True)
         subprocess.run(
-            ["rclone", "copyto", "--progress", GDRIVE_SRC, str(gguf_path)],
+            ["rclone", "copyto", "--progress", GDRIVE_SRC, str(CANONICAL_GGUF_PATH)],
             check=True,
         )
     sz = gguf_path.stat().st_size
@@ -59,19 +66,13 @@ def ensure_cand_pure_gguf(gguf_path: Path) -> Path:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Upload Caphlon-2 (Cand_pure 48/60 GPQA-D) to Hugging Face Hub")
-    ap.add_argument("--repo-id", default="ssuasd/Caphlon-2", help="Target HF repo (e.g. ssuasd/Caphlon-2)")
     ap.add_argument(
-        "--gguf",
-        type=Path,
-        default=Path("/Users/demir/Desktop/theleaf/colab/calisma/Caphlon-2-27B-PTQ1_SB.gguf"),
-        help="Path to local 4.52 GiB Cand_pure (cand_tam_bsqrt) PTQ1_SB GGUF",
+        "--repo-id",
+        choices=tuple(ALLOWED_REPOS.keys()),
+        default="ssuasd/Caphlon-2",
+        help="Target HF repo (ssuasd/Caphlon-2 or ssuasd/Caphlon-Model)",
     )
-    ap.add_argument(
-        "--target-gguf-name",
-        default="Caphlon-2-27B-PTQ1_SB.gguf",
-        help="Filename in the Hugging Face repository",
-    )
-    ap.add_argument("--token", default=os.environ.get("HF_TOKEN") or None, help="Hugging Face write token (defaults to cached hf auth login token)")
+    ap.add_argument("--token", default=os.environ.get("HF_TOKEN") or None, help="Hugging Face write token")
     args = ap.parse_args()
 
     try:
@@ -80,20 +81,22 @@ def main() -> int:
         print("ERROR: huggingface_hub is not installed.", file=sys.stderr)
         return 1
 
+    target_repo = ALLOWED_REPOS[args.repo_id]
     repo_root = Path(__file__).resolve().parents[1]
-    gguf_file = ensure_cand_pure_gguf(args.gguf)
+    gguf_file = ensure_cand_pure_gguf()
 
     api = HfApi(token=args.token)
     user = api.whoami()
     print(f"[HF] Authenticated as: {user.get('name')}")
 
-    api.create_repo(repo_id=args.repo_id, repo_type="model", exist_ok=True, private=False)
-    print(f"[HF] Repo ready: https://huggingface.co/{args.repo_id}")
+    api.create_repo(repo_id=target_repo, repo_type="model", exist_ok=True, private=False)
+    print(f"[HF] Repo ready: https://huggingface.co/{target_repo}")
 
     support_files = [
         (repo_root / "NOTICE.md", "NOTICE.md"),
         (repo_root / "LICENSE", "LICENSE"),
         (repo_root / "CITATION.cff", "CITATION.cff"),
+        (repo_root / "Modelfile", "Modelfile"),
         (repo_root / "patches/prismll_ptq1_sb_cuda_metal.patch", "patches/prismll_ptq1_sb_cuda_metal.patch"),
         (repo_root / "metadata/Caphlon-2-27B-PTQ1_SB.meta.json", "metadata/Caphlon-2-27B-PTQ1_SB.meta.json"),
         (repo_root / "metadata/iti_mean.gguf", "metadata/iti_mean.gguf"),
@@ -126,6 +129,7 @@ def main() -> int:
                 "  - ternary\n"
                 "  - ptq1_sb\n"
                 "  - llama.cpp\n"
+                "  - ollama\n"
                 "---\n\n"
             )
             raw_readme = hf_frontmatter + raw_readme
@@ -133,7 +137,7 @@ def main() -> int:
         api.upload_file(
             path_or_fileobj=raw_readme.encode("utf-8"),
             path_in_repo="README.md",
-            repo_id=args.repo_id,
+            repo_id=target_repo,
             repo_type="model",
             commit_message="Update README.md for Caphlon-2 (4.52 GiB PTQ1_SB, 80.0% GPQA-D)",
         )
@@ -143,21 +147,21 @@ def main() -> int:
             api.upload_file(
                 path_or_fileobj=str(src),
                 path_in_repo=dst,
-                repo_id=args.repo_id,
+                repo_id=target_repo,
                 repo_type="model",
                 commit_message=f"Upload {dst} for Caphlon-2 (4.52 GiB PTQ1_SB, 80.0% GPQA-D)",
             )
 
     sz = gguf_file.stat().st_size
-    print(f"[HF] Uploading {gguf_file} -> {args.target_gguf_name} ({sz:,} bytes / {sz / 2**30:.4f} GiB)...")
+    print(f"[HF] Uploading {gguf_file} -> {TARGET_GGUF_NAME} ({sz:,} bytes / {sz / 2**30:.4f} GiB)...")
     api.upload_file(
         path_or_fileobj=str(gguf_file),
-        path_in_repo=args.target_gguf_name,
-        repo_id=args.repo_id,
+        path_in_repo=TARGET_GGUF_NAME,
+        repo_id=target_repo,
         repo_type="model",
-        commit_message=f"Upload {args.target_gguf_name} (Cand_pure 4.52 GiB PTQ1_SB, SHA256 ac41fcdd...)",
+        commit_message=f"Upload {TARGET_GGUF_NAME} (Cand_pure 4.52 GiB PTQ1_SB, SHA256 ac41fcdd...)",
     )
-    print(f"[HF] DONE: https://huggingface.co/{args.repo_id}")
+    print(f"[HF] DONE: https://huggingface.co/{target_repo}")
     return 0
 
 

@@ -13,12 +13,12 @@ MODEL="${1:?usage: eval-en40.sh <model.gguf> [corpus.txt]}"
 CORPUS="${2:-wiki.test.raw}"
 PPL_BIN="${LLAMA_PPL:-$REPO_ROOT/build-prism/llbuild/bin/llama-perplexity}"
 
-if ! command -v "$PPL_BIN" >/dev/null 2>&1 && [ ! -x "$PPL_BIN" ]; then
+if ! command -v "$PPL_BIN" >/dev/null 2>&1 && [[ ! -x "$PPL_BIN" ]]; then
   PPL_BIN="llama-perplexity"
 fi
 
-if [ ! -f "$MODEL" ]; then echo "model not found: $MODEL" >&2; exit 1; fi
-if [ ! -f "$CORPUS" ]; then echo "corpus not found: $CORPUS" >&2; exit 1; fi
+if [[ ! -f "$MODEL" ]]; then echo "model not found: $MODEL" >&2; exit 1; fi
+if [[ ! -f "$CORPUS" ]]; then echo "corpus not found: $CORPUS" >&2; exit 1; fi
 
 exec "$PPL_BIN" \
   -m "$MODEL" \

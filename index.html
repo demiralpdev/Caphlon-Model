@@ -356,7 +356,7 @@
 
   /* ───────── BOTTOM CHAPTER PROGRESS NAVIGATOR (CHAPTER 1+) ───────── */
   .chapter-progress{
-    position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:40;
+    position:fixed;bottom:18px;left:50%;z-index:40;
     display:flex;align-items:center;gap:10px;padding:6px 16px;
     background:rgba(14,9,6,.86);border:1.5px solid rgba(239,227,201,.32);
     box-shadow:0 4px 16px rgba(0,0,0,.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
@@ -650,7 +650,7 @@
     </div>
 
     <!-- ───────── LAYER 10: ROVER LOOPING CAMPER VAN ───────── -->
-    <video class="rover" id="rover" muted loop autoplay playsinline preload="auto" aria-hidden="true">
+    <video class="rover" id="rover" muted loop autoplay playsinline preload="auto" tabindex="-1">
       <source src="assets/rover-loop.webm" type="video/webm" />
     </video>
 
@@ -1159,7 +1159,7 @@
   });
   dots.forEach(function(dot) {
     dot.addEventListener('click', function() {
-      var t = parseInt(this.getAttribute('data-chap'), 10);
+      var t = Number.parseInt(this.getAttribute('data-chap'), 10);
       goToChapter(t);
     });
   });

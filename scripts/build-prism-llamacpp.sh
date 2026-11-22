@@ -12,7 +12,7 @@ PATCH_FILE="$REPO_ROOT/patches/prismll_ptq1_sb_cuda_metal.patch"
 PRISM_COMMIT="6447906bf96c1a023980d3453fb59daa6af3bb23"
 WORK_DIR="${1:-$REPO_ROOT/build-prism}"
 
-if [ ! -f "$PATCH_FILE" ]; then
+if [[ ! -f "$PATCH_FILE" ]]; then
   echo "error: patch not found at $PATCH_FILE" >&2
   exit 1
 fi
@@ -21,10 +21,10 @@ mkdir -p "$WORK_DIR"
 SRC_DIR="$WORK_DIR/llsrc"
 BLD_DIR="$WORK_DIR/llbuild"
 
-if [ ! -d "$SRC_DIR" ]; then
+if [[ ! -d "$SRC_DIR" ]]; then
   echo "== Downloading PrismML-Eng/llama.cpp ($PRISM_COMMIT) =="
   mkdir -p "$SRC_DIR"
-  curl -fsSL --retry 5 --http1.1 \
+  curl -fsS --proto '=https' --tlsv1.2 --retry 5 --http1.1 \
     "https://codeload.github.com/PrismML-Eng/llama.cpp/tar.gz/$PRISM_COMMIT" \
     -o "$WORK_DIR/prism_src.tar.gz"
   tar -xzf "$WORK_DIR/prism_src.tar.gz" -C "$SRC_DIR" --strip-components=1
@@ -43,11 +43,11 @@ CMAKE_ARGS=(
 )
 
 OS_NAME="$(uname -s)"
-if [ "$OS_NAME" = "Darwin" ]; then
+if [[ "$OS_NAME" == "Darwin" ]]; then
   echo "== Configuring for macOS (Apple Metal + ARM64 NEON / Accelerate) =="
   CMAKE_ARGS+=(-DGGML_METAL=ON)
 else
-  if command -v nvcc >/dev/null 2>&1 || [ -x /usr/local/cuda/bin/nvcc ]; then
+  if command -v nvcc >/dev/null 2>&1 || [[ -x /usr/local/cuda/bin/nvcc ]]; then
     CUDA_ARCH="${CUDA_ARCH:-75}"
     echo "== Configuring for Linux CUDA (CMAKE_CUDA_ARCHITECTURES=$CUDA_ARCH + AVX2) =="
     CMAKE_ARGS+=(
@@ -55,7 +55,7 @@ else
       -DCMAKE_CUDA_ARCHITECTURES="$CUDA_ARCH"
       -DGGML_AVX2=ON
     )
-    if [ -e /usr/lib/x86_64-linux-gnu/libcuda.so.1 ] && [ ! -e /usr/lib/x86_64-linux-gnu/libcuda.so ]; then
+    if [[ -e /usr/lib/x86_64-linux-gnu/libcuda.so.1 ]] && [[ ! -e /usr/lib/x86_64-linux-gnu/libcuda.so ]]; then
       sed -i 's|CUDA::cuda_driver|/usr/lib/x86_64-linux-gnu/libcuda.so.1|g' \
         "$SRC_DIR/ggml/src/ggml-cuda/CMakeLists.txt"
     fi

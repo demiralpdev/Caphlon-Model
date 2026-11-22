@@ -13,11 +13,11 @@ SLOTS="${3:-1}"
 PORT="${PORT:-8080}"
 SERVER_BIN="${LLAMA_SERVER:-$REPO_ROOT/build-prism/llbuild/bin/llama-server}"
 
-if ! command -v "$SERVER_BIN" >/dev/null 2>&1 && [ ! -x "$SERVER_BIN" ]; then
+if ! command -v "$SERVER_BIN" >/dev/null 2>&1 && [[ ! -x "$SERVER_BIN" ]]; then
   SERVER_BIN="llama-server"
 fi
 
-if [ ! -f "$MODEL" ]; then
+if [[ ! -f "$MODEL" ]]; then
   echo "model not found: $MODEL" >&2
   exit 1
 fi
@@ -28,13 +28,13 @@ KV_TYPE="${KV_TYPE:-q8_0}"
 # Optional anti-hesitation logit-bias from metadata/Caphlon-2-27B-PTQ1_SB.meta.json
 LB_FLAGS=()
 META_JSON="$REPO_ROOT/metadata/Caphlon-2-27B-PTQ1_SB.meta.json"
-if [ "${ANTI_HESITATION:-1}" = "1" ] && [ -f "$META_JSON" ] && command -v python3 >/dev/null 2>&1; then
+if [[ "${ANTI_HESITATION:-1}" == "1" ]] && [[ -f "$META_JSON" ]] && command -v python3 >/dev/null 2>&1; then
   LB_STR="$(python3 -c '
 import json, sys
 d = json.load(open(sys.argv[1]))
 print(",".join(f"{e[\"yeni_id\"]}:{e[\"bias\"]}" for e in d.get("tereddut_bias", [])))
 ' "$META_JSON")"
-  if [ -n "$LB_STR" ]; then
+  if [[ -n "$LB_STR" ]]; then
     for pair in ${LB_STR//,/ }; do
       LB_FLAGS+=(--logit-bias "$pair")
     done

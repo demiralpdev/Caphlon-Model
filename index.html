@@ -138,10 +138,11 @@
   /* Layer 1: Background World Scenes */
   .world-scene{
     position:absolute;inset:0;width:100%;height:100%;opacity:0;visibility:hidden;
-    transition:opacity .75s cubic-bezier(.4,0,.2,1), visibility .75s;
+    transition:opacity .45s ease, visibility .45s;
     overflow:hidden;z-index:1;
   }
-  .world-scene.active{opacity:1;visibility:visible}
+  .world-scene.active{opacity:1;visibility:visible;z-index:2}
+  .world-scene.holding{opacity:1;visibility:visible;z-index:1;transition:none}
   .world-bg{
     position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;
     filter:brightness(.68) saturate(.92) contrast(1.05);
@@ -792,20 +793,65 @@
     document.fonts.ready.then(syncTitleY).catch(function(){});
   }
 
-  // Switch active world layer
+  // Ensure background assets of a chapter are loaded & decoded before switching
+  function hydrateAllLateAssets() {
+    document.querySelectorAll('img[data-late]').forEach(function(im) {
+      im.src = im.getAttribute('data-late');
+      im.removeAttribute('data-late');
+      if (im.decode) im.decode().catch(function(){});
+    });
+    ['assets/world-cyber-city-lights.webp','assets/tunnel-back.webp','assets/tunnel-front.webp']
+      .forEach(function(u) {
+        var pre = new Image();
+        pre.src = u;
+        if (pre.decode) pre.decode().catch(function(){});
+      });
+  }
+
+  // Switch active world layer without ever exposing a blank black frame
   function setWorld(idx) {
+    hydrateAllLateAssets();
+    var targetLayer = worldLayers[idx];
+    var prevLayers = [];
     for (var i = 0; i < worldLayers.length; i++) {
-      if (worldLayers[i]) worldLayers[i].classList.toggle('active', i === idx);
-    }
-    if (cliffsFrontLayer) {
-      cliffsFrontLayer.classList.toggle('hide-cliffs', idx === 3);
-    }
-    if (imgCliffsFront) {
-      if (idx === 4) {
-        imgCliffsFront.src = 'assets/scene-dawn-cliffs-front.webp';
-      } else {
-        imgCliffsFront.src = 'assets/scene-canyon-cliffs-front.webp';
+      if (worldLayers[i] && i !== idx && worldLayers[i].classList.contains('active')) {
+        prevLayers.push(worldLayers[i]);
       }
+    }
+
+    function applyReveal() {
+      for (var j = 0; j < worldLayers.length; j++) {
+        if (!worldLayers[j]) continue;
+        worldLayers[j].classList.remove('holding');
+        worldLayers[j].classList.toggle('active', j === idx);
+      }
+      if (cliffsFrontLayer) {
+        cliffsFrontLayer.classList.toggle('hide-cliffs', idx === 3);
+      }
+      if (imgCliffsFront) {
+        if (idx === 4) {
+          imgCliffsFront.src = 'assets/scene-dawn-cliffs-front.webp';
+        } else {
+          imgCliffsFront.src = 'assets/scene-canyon-cliffs-front.webp';
+        }
+      }
+    }
+
+    var targetImg = targetLayer ? targetLayer.querySelector('img.world-bg') : null;
+    if (targetImg && !(targetImg.complete && targetImg.naturalWidth > 0)) {
+      // Keep the previous world visible underneath until the new image is decoded
+      prevLayers.forEach(function(el) { el.classList.add('holding'); });
+      var revealed = false;
+      var finishReveal = function() {
+        if (revealed) return;
+        revealed = true;
+        applyReveal();
+      };
+      targetImg.addEventListener('load', finishReveal, { once: true });
+      if (targetImg.decode) targetImg.decode().then(finishReveal).catch(finishReveal);
+      setTimeout(finishReveal, 600);
+    } else {
+      applyReveal();
     }
   }
 
@@ -831,33 +877,25 @@
   var tFront = document.getElementById('tunnel-front');
   var v = document.getElementById('rover');
 
-  // ───────── LOAD ORDER: hero + van video first, the rest afterwards ─────────
-  // Chapter backgrounds and tunnel art are fetched only once the van video can play,
-  // so slow connections spend their bandwidth on the entrance first.
+  // ───────── LOAD ORDER: hero + van video first, then immediate background decode ─────────
   (function lateAssets() {
     var done = false;
     function go() {
-      if (done) return; done = true;
-      document.querySelectorAll('img[data-late]').forEach(function(im) {
-        im.src = im.getAttribute('data-late'); im.removeAttribute('data-late');
-      });
-      ['assets/world-cyber-city-lights.webp','assets/tunnel-back.webp','assets/tunnel-front.webp']
-        .forEach(function(u) { new Image().src = u; });
+      if (done) return;
+      done = true;
+      hydrateAllLateAssets();
     }
     var rv = document.getElementById('rover');
     if (rv) {
-      // go() only when the whole clip is downloaded, so nothing competes with it
-      function check() {
-        var b = rv.buffered;
-        if (rv.duration && b.length && b.end(b.length - 1) >= rv.duration - 0.1) go();
-      }
-      rv.addEventListener('canplay', function() { if (rv.paused && !rv.ended) rv.play().catch(function(){}); });
-      rv.addEventListener('progress', check);
-      rv.addEventListener('canplaythrough', check);
-      rv.addEventListener('loadeddata', check);
-      check();
+      rv.addEventListener('canplay', function() {
+        if (rv.paused && !rv.ended) rv.play().catch(function(){});
+        setTimeout(go, 150);
+      });
+      rv.addEventListener('loadeddata', function() { setTimeout(go, 150); });
     }
-    setTimeout(go, 45000);
+    if (document.readyState === 'complete') setTimeout(go, 250);
+    else window.addEventListener('load', function() { setTimeout(go, 250); });
+    setTimeout(go, 800);
   })();
 
   // ───────── GAPLESS ROVER LOOP (MediaSource, optional upgrade) ─────────
@@ -930,7 +968,7 @@
 
   var TUNNEL_W = 3320;
   var START_SHIFT = -3585.6; // -108% of 3320 (fully offscreen left, texture stays resident in GPU VRAM)
-  var MID_SHIFT = -760;      // Point where solid rock wall 100% occludes viewport center
+  var MID_SHIFT = -700;      // Point where solid rock wall (x=600..2700 -> -100..2000) 100% occludes 1920px viewport
   var END_SHIFT = 1992;      // +60% of 3320 (fully offscreen right across all aspect ratios)
   var VIDEO_FPS = 60;
   var PX_PER_FRAME = 9.037;  // Sub-pixel measured desert floor displacement per frame in rover-loop.webm (y=920..1040)
@@ -943,9 +981,10 @@
       if (onDone) onDone();
       return;
     }
+    hydrateAllLateAssets();
 
     var totalDist = END_SHIFT - START_SHIFT; // 5577.6 stage px
-    var midDist = MID_SHIFT - START_SHIFT;   // 2825.6 stage px
+    var midDist = MID_SHIFT - START_SHIFT;   // 2885.6 stage px
     var rate = (v && v.playbackRate && v.playbackRate > 0) ? v.playbackRate : 1;
     var speed = ROAD_SPEED * rate;
     var durationMs = (totalDist / speed) * 1000;
@@ -961,15 +1000,7 @@
     function triggerMidpoint() {
       if (midpointTriggered || done) return;
       midpointTriggered = true;
-      // Swap background world instantaneously while 100% occluded by the rock wall
-      // so the GPU never blends two 1920x1080 filtered scenes behind the moving wall.
-      docEl.classList.add('no-trans');
       if (onMidpoint) onMidpoint();
-      requestAnimationFrame(function() {
-        requestAnimationFrame(function() {
-          docEl.classList.remove('no-trans');
-        });
-      });
     }
 
     // Run tunnel translation on the GPU Compositor Thread via Web Animations API

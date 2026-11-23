@@ -127,9 +127,12 @@ jobs:
           cmake -S build-win\llsrc -B build-win\llbuild -G "Ninja Multi-Config" ^
             -DGGML_NATIVE=OFF ^
             -DGGML_AVX2=ON ^
+            -DGGML_BACKEND_DL=ON ^
             -DGGML_CUDA=ON ^
             -DGGML_CUDA_CCCL_VERSION=v3.4.3 ^
-            -DCMAKE_CUDA_ARCHITECTURES="61-virtual;75-virtual;80-virtual;86-real;89-real;90-virtual" ^
+            -DGGML_CUDA_FA_QUANTS="q8_0-q8_0;f16-f16" ^
+            -DCMAKE_CUDA_ARCHITECTURES="61-virtual;75-virtual;86-virtual;89-virtual" ^
+            -DLLAMA_DSPARK_MARKOV_CUDA=OFF ^
             -DLLAMA_OPENSSL=OFF ^
             -DLLAMA_CURL=OFF ^
             -DLLAMA_BUILD_EXAMPLES=OFF ^
@@ -138,8 +141,7 @@ jobs:
             -DLLAMA_BUILD_SERVER=ON ^
             -DLLAMA_BUILD_UI=OFF ^
             -DLLAMA_USE_PREBUILT_UI=OFF
-          set /A NINJA_JOBS=%NUMBER_OF_PROCESSORS%-1
-          cmake --build build-win\llbuild --config Release -j %NINJA_JOBS% --target llama-server llama-cli
+          cmake --build build-win\llbuild --config Release -j %NUMBER_OF_PROCESSORS% --target llama-server llama-cli ggml-cuda ggml-cpu
 
       - name: Verify embedded UI, stage bundle, smoke test, and zip
         shell: pwsh
@@ -151,6 +153,9 @@ jobs:
           }
           if (-not (Test-Path "build-win\llbuild\bin\Release\ggml-cuda.dll")) {
             throw "ggml-cuda.dll not produced!"
+          }
+          if (-not (Test-Path "build-win\llbuild\bin\Release\ggml-cpu.dll")) {
+            throw "ggml-cpu.dll not produced!"
           }
 
           $bundle = "Caphlon-2-Windows-NVIDIA-CUDA"
@@ -165,6 +170,8 @@ jobs:
           foreach ($dll in $cudaDlls) {
             Copy-Item $dll.FullName $binDst -Force
           }
+          if (-not (Test-Path (Join-Path $binDst "ggml-cuda.dll"))) { throw "Missing staged ggml-cuda.dll!" }
+          if (-not (Test-Path (Join-Path $binDst "ggml-cpu.dll"))) { throw "Missing staged ggml-cpu.dll!" }
           if (-not (Get-ChildItem $binDst -Filter "cudart64_*.dll")) { throw "Missing cudart64 DLL!" }
           if (-not (Get-ChildItem $binDst -Filter "cublas64_*.dll")) { throw "Missing cublas64 DLL!" }
           if (-not (Get-ChildItem $binDst -Filter "cublasLt64_*.dll")) { throw "Missing cublasLt64 DLL!" }
@@ -189,15 +196,21 @@ jobs:
           }
 
           Write-Host "Staged bundle files:"
-          Get-ChildItem -Recurse $bundle | Select-Object FullName, Length
+          Get-ChildItem -Recurse $bundle | Select-Object FullName, Length | Format-Table -AutoSize | Out-Host
 
           & ".\$bundle\bin\llama-server.exe" --help | Out-Null
-          if ($LASTEXITCODE -ne 0) { throw "llama-server.exe --help failed with $LASTEXITCODE" }
+          if ($LASTEXITCODE -ne 0) {
+            Get-ChildItem $binDst | Format-Table Name, Length | Out-Host
+            throw "llama-server.exe --help failed with $LASTEXITCODE"
+          }
           & ".\$bundle\bin\llama-cli.exe" --help | Out-Null
-          if ($LASTEXITCODE -ne 0) { throw "llama-cli.exe --help failed with $LASTEXITCODE" }
+          if ($LASTEXITCODE -ne 0) {
+            Get-ChildItem $binDst | Format-Table Name, Length | Out-Host
+            throw "llama-cli.exe --help failed with $LASTEXITCODE"
+          }
 
           7z a -tzip Caphlon-2-Windows-NVIDIA-CUDA.zip "$bundle"
-          Get-Item Caphlon-2-Windows-NVIDIA-CUDA.zip | Select-Object Name, Length
+          Get-Item Caphlon-2-Windows-NVIDIA-CUDA.zip | Select-Object Name, Length | Format-Table -AutoSize | Out-Host
 
       - name: Upload Windows CUDA bundle to Release v2.0.0
         env:
@@ -247,10 +260,13 @@ jobs:
             -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON \
             -DGGML_NATIVE=OFF \
             -DGGML_AVX2=ON \
+            -DGGML_BACKEND_DL=ON \
             -DGGML_CUDA=ON \
             -DGGML_CUDA_NCCL=OFF \
             -DGGML_CUDA_CCCL_VERSION=v3.4.3 \
-            -DCMAKE_CUDA_ARCHITECTURES="61-virtual;75-virtual;80-virtual;86-real;89-real;90-virtual" \
+            -DGGML_CUDA_FA_QUANTS="q8_0-q8_0;f16-f16" \
+            -DCMAKE_CUDA_ARCHITECTURES="61-virtual;75-virtual;86-virtual;89-virtual" \
+            -DLLAMA_DSPARK_MARKOV_CUDA=OFF \
             -DLLAMA_OPENSSL=OFF \
             -DLLAMA_CURL=OFF \
             -DLLAMA_BUILD_EXAMPLES=OFF \
@@ -259,14 +275,15 @@ jobs:
             -DLLAMA_BUILD_SERVER=ON \
             -DLLAMA_BUILD_UI=OFF \
             -DLLAMA_USE_PREBUILT_UI=OFF
-          cmake --build build-lin/llbuild --target llama-server llama-cli -j "$(nproc)"
+          cmake --build build-lin/llbuild --target llama-server llama-cli ggml-cuda ggml-cpu -j "$(nproc)"
 
       - name: Verify embedded UI, stage bundle, smoke test, and tar
         run: |
           UI_CPP_SIZE="$(wc -c < build-lin/llbuild/tools/ui/ui.cpp)"
           echo "Generated ui.cpp size: $UI_CPP_SIZE bytes"
           test "$UI_CPP_SIZE" -gt 100000
-          test -f build-lin/llbuild/bin/libggml-cuda.so || ls -la build-lin/llbuild/bin/
+          test -f build-lin/llbuild/bin/libggml-cuda.so
+          test -f build-lin/llbuild/bin/libggml-cpu.so
 
           BUNDLE="Caphlon-2-Linux-NVIDIA-CUDA"
           mkdir -p "$BUNDLE/bin"
@@ -281,10 +298,8 @@ jobs:
           cp scripts/bundle/START-CAPHLON2.sh "$BUNDLE/START-CAPHLON2.sh"
           chmod +x "$BUNDLE/bin/llama-server" "$BUNDLE/bin/llama-cli" "$BUNDLE/START-CAPHLON2.sh"
 
-          mkdir -p build-lin/stub
-          ln -sf /usr/local/cuda/lib64/stubs/libcuda.so build-lin/stub/libcuda.so.1
-          LD_LIBRARY_PATH="$PWD/$BUNDLE/bin:$PWD/build-lin/stub" "./$BUNDLE/bin/llama-server" --help >/dev/null
-          LD_LIBRARY_PATH="$PWD/$BUNDLE/bin:$PWD/build-lin/stub" "./$BUNDLE/bin/llama-cli" --help >/dev/null
+          "./$BUNDLE/bin/llama-server" --help >/dev/null
+          "./$BUNDLE/bin/llama-cli" --help >/dev/null
 
           tar -czvf Caphlon-2-Linux-NVIDIA-CUDA.tar.gz "$BUNDLE"
           ls -lh Caphlon-2-Linux-NVIDIA-CUDA.tar.gz

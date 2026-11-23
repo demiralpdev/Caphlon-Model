@@ -24,6 +24,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Antonio:wght@700&family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=DM+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <link rel="preload" as="image" href="assets/scene-canyon-back.webp" />
 <link rel="preload" as="image" href="assets/scene-canyon-cliffs-front.webp" />
+<link rel="preload" as="image" href="assets/rover-poster.webp" />
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -132,6 +133,7 @@
   .hero{position:fixed;inset:0;width:100%;height:100%;overflow:hidden;background:transparent;z-index:2;pointer-events:none}
   .stage{position:absolute;bottom:var(--stage-bottom, 0px);
          --stage-w:max(100vw,calc(100vh * 16 / 9));
+         --stage-w:max(100vw,calc(100dvh * 16 / 9));
          left:calc(50% - var(--stage-w) / 2);width:var(--stage-w);aspect-ratio:16/9}
   .stage>*{position:absolute;inset:0;width:100%;height:100%;display:block}
 
@@ -651,8 +653,8 @@
           <a class="btn pri" href="https://huggingface.co/ssuasd/Caphlon-Model" target="_blank" rel="noopener">Download on Hugging Face</a>
           <a class="btn ghost" href="https://github.com/demiralpdev/Caphlon-Model" target="_blank" rel="noopener">GitHub Repository</a>
         </div>
-        <p style="margin:0;font:600 11px/1.4 var(--mono);color:var(--paper-dim)">
-          Maintained by <a href="https://github.com/demiralpdev">Demir Alp Gündoğmuş</a> · Caphlon-2 SHA-256: <code>ac41fcddf5da28d71198f60202c10ea37cc64d791e5f6f118f849a02579c20db</code>
+        <p style="margin:0;font:600 11px/1.4 var(--mono);color:var(--paper-dim);overflow-wrap:anywhere">
+          Maintained by <a href="https://github.com/demiralpdev">Demir Alp Gündoğmuş</a> · Caphlon-2 SHA-256: <code style="word-break:break-all">ac41fcddf5da28d71198f60202c10ea37cc64d791e5f6f118f849a02579c20db</code>
         </p>
       </section>
     </main>
@@ -668,7 +670,7 @@
     </div>
 
     <!-- ───────── LAYER 10: ROVER LOOPING CAMPER VAN ───────── -->
-    <video class="rover" id="rover" muted loop autoplay playsinline preload="auto" tabindex="-1">
+    <video class="rover" id="rover" poster="assets/rover-poster.webp" muted loop autoplay playsinline preload="auto" tabindex="-1">
       <source src="assets/rover-loop.webm" type="video/webm" />
     </video>
 
@@ -755,7 +757,7 @@
 
   function syncTitleY(){
     var vw = window.innerWidth || docEl.clientWidth || 1280;
-    var vh = window.innerHeight || docEl.clientHeight || 720;
+    var vh = (window.visualViewport && window.visualViewport.height) ? window.visualViewport.height : (window.innerHeight || docEl.clientHeight || 720);
     var navH = (navEl && navEl.offsetHeight) ? navEl.offsetHeight : 54;
 
     var stageW = Math.max(vw, vh * (16 / 9));
@@ -763,11 +765,17 @@
     var overflowY = Math.max(0, stageH - vh);
 
     var bottomCrop = Math.min(overflowY * 0.78, stageH * 0.145);
-    var stageTop = vh - stageH + bottomCrop; // <= 0
-
     if (stageEl) {
       stageEl.style.setProperty('--stage-bottom', (-bottomCrop).toFixed(1) + 'px');
     }
+
+    // Measure the true rendered .stage rect from the DOM so mobile dynamic toolbars (Brave/Safari/Chrome 100vh vs 100dvh) never drift
+    var stageRect = stageEl ? stageEl.getBoundingClientRect() : null;
+    if (stageRect && stageRect.height > 100) {
+      stageW = stageRect.width;
+      stageH = stageRect.height;
+    }
+    var stageTop = stageRect ? stageRect.top : (vh - stageH + bottomCrop);
 
     // Set Caphlon SVG title: keep full 380px on desktop, clamp by visible viewport width on mobile/tablet so letters never clip
     var isMobile = vw <= 680;
@@ -777,7 +785,7 @@
     if (isMobile) {
       svgFontSize = Math.max(88, Math.min(134, maxSvgFontByW));
       // Place Caphlon title cleanly below navbar in the upper sky so hero card + buttons clear the camper van
-      var mobTitleTopY = navH + Math.max(16, vh * 0.03);
+      var mobTitleTopY = navH + Math.max(14, vh * 0.025);
       var mobTitleBaseY = mobTitleTopY + ((svgFontSize * 0.72) / 1080) * stageH;
       svgY = ((mobTitleBaseY - stageTop) / stageH) * 1080;
     } else if (vw < 960) {
@@ -791,20 +799,20 @@
 
     // Safe vertical window between top navbar and camper van roof antenna
     var vanTopScreenY = stageTop + stageH * 0.6555;
-    var safeTopScreenY = navH + Math.max(10, vh * 0.015);
-    var safeBottomScreenY = Math.min(vh - 72, vanTopScreenY - Math.max(10, vh * 0.015));
+    var safeTopScreenY = navH + Math.max(10, vh * 0.014);
+    var safeBottomScreenY = Math.min(vh - 72, vanTopScreenY - Math.max(16, vh * 0.025));
     var chapAvailH = Math.max(180, safeBottomScreenY - safeTopScreenY - 8);
 
     if (isMobile && stageEl) {
       var titleBottomY = stageTop + ((svgY + svgFontSize * 0.22) / 1080) * stageH;
       var heroNatH = (heroCardEl && heroCardEl.offsetHeight) ? heroCardEl.offsetHeight : 165;
       var mobHeroSpace = Math.max(heroNatH + 8, safeBottomScreenY - titleBottomY);
-      var mobHeroTop = titleBottomY + Math.max(10, (mobHeroSpace - heroNatH) * 0.42);
+      var mobHeroTop = titleBottomY + Math.max(8, (mobHeroSpace - heroNatH) * 0.38);
       if (mobHeroTop + heroNatH > safeBottomScreenY) {
         mobHeroTop = Math.max(titleBottomY + 6, safeBottomScreenY - heroNatH);
       }
       stageEl.style.setProperty('--mob-hero-top', mobHeroTop.toFixed(1) + 'px');
-      stageEl.style.setProperty('--mob-card-maxh', Math.max(220, safeBottomScreenY - safeTopScreenY).toFixed(1) + 'px');
+      stageEl.style.setProperty('--mob-card-maxh', Math.max(200, safeBottomScreenY - safeTopScreenY).toFixed(1) + 'px');
     }
 
     for (var ci = 1; ci < cards.length; ci++) {
@@ -829,6 +837,9 @@
   syncTitleY();
   addEventListener('resize', syncTitleY, {passive:true});
   addEventListener('load', syncTitleY, {passive:true});
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', syncTitleY, {passive:true});
+  }
   if (document.fonts && document.fonts.ready) {
     document.fonts.ready.then(syncTitleY).catch(function(){});
   }

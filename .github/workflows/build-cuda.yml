@@ -1,0 +1,41 @@
+name: Build Linux CUDA Binaries
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/build-prism-llamacpp.sh'
+      - 'patches/**'
+      - '.github/workflows/build-cuda.yml'
+
+jobs:
+  build-linux-cuda:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup CUDA
+        run: |
+          echo "Checking CUDA installation..."
+          if [ -d "/usr/local/cuda" ]; then
+            echo "CUDA_PATH=/usr/local/cuda" >> $GITHUB_ENV
+            echo "/usr/local/cuda/bin" >> $GITHUB_PATH
+          fi
+
+      - name: Build with CUDA
+        run: |
+          export CUDA_ARCH="75;80;86;89"
+          bash scripts/build-prism-llamacpp.sh
+
+      - name: Package binaries
+        run: |
+          tar -czvf caphlon-2-prism-llamacpp-linux-cuda-x64.tar.gz -C build-prism/llbuild bin/
+
+      - name: Upload to GitHub Release v2.0.0
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload v2.0.0 caphlon-2-prism-llamacpp-linux-cuda-x64.tar.gz --clobber --repo demiralpdev/Caphlon-Model || true

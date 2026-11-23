@@ -1,0 +1,310 @@
+name: Build Plug-and-Play Release Binaries
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/build-prism-llamacpp.sh'
+      - 'scripts/bundle/**'
+      - 'patches/**'
+      - '.github/workflows/release-binaries.yml'
+
+jobs:
+  build-ui:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download PrismML llama.cpp source
+        run: |
+          PRISM_COMMIT="6447906bf96c1a023980d3453fb59daa6af3bb23"
+          curl -fsSL --retry 5 "https://codeload.github.com/PrismML-Eng/llama.cpp/tar.gz/${PRISM_COMMIT}" -o prism.tar.gz
+          mkdir -p llsrc
+          tar -xzf prism.tar.gz -C llsrc --strip-components=1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Build Web UI
+        env:
+          LLAMA_BUILD_NUMBER: "b12128"
+        run: |
+          npm ci
+          npm run build
+        working-directory: llsrc/tools/ui
+
+      - name: Verify built UI assets
+        run: |
+          test -f llsrc/tools/ui/dist/index.html
+          test -f llsrc/tools/ui/dist/manifest.webmanifest
+          test -f llsrc/tools/ui/dist/sw.js
+          ls -lh llsrc/tools/ui/dist/workbox*.js
+          ls -lh llsrc/tools/ui/dist/_app/immutable/bundle*.js
+          ls -lh llsrc/tools/ui/dist/_app/immutable/assets/bundle*.css
+
+      - name: Upload Web UI assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: llama-ui-dist
+          path: llsrc/tools/ui/dist/
+          retention-days: 1
+
+  build-windows-cuda:
+    needs: [build-ui]
+    runs-on: windows-2022
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Web UI assets
+        uses: actions/download-artifact@v4
+        with:
+          name: llama-ui-dist
+          path: ui-dist
+
+      - name: Install Ninja and Unzip
+        run: |
+          choco install ninja unzip -y
+
+      - name: Install CUDA Toolkit 12.4
+        shell: pwsh
+        run: |
+          $cudaDir = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4"
+          $dlDir = Join-Path $env:RUNNER_TEMP "cuda124_dl"
+          New-Item -ItemType Directory -Force -Path $cudaDir | Out-Null
+          New-Item -ItemType Directory -Force -Path $dlDir | Out-Null
+
+          $archives = @(
+            "https://developer.download.nvidia.com/compute/cuda/redist/cuda_cudart/windows-x86_64/cuda_cudart-windows-x86_64-12.4.127-archive.zip",
+            "https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvcc/windows-x86_64/cuda_nvcc-windows-x86_64-12.4.131-archive.zip",
+            "https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvrtc/windows-x86_64/cuda_nvrtc-windows-x86_64-12.4.127-archive.zip",
+            "https://developer.download.nvidia.com/compute/cuda/redist/libcublas/windows-x86_64/libcublas-windows-x86_64-12.4.5.8-archive.zip",
+            "https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvtx/windows-x86_64/cuda_nvtx-windows-x86_64-12.4.127-archive.zip",
+            "https://developer.download.nvidia.com/compute/cuda/redist/cuda_profiler_api/windows-x86_64/cuda_profiler_api-windows-x86_64-12.4.127-archive.zip",
+            "https://developer.download.nvidia.com/compute/cuda/redist/visual_studio_integration/windows-x86_64/visual_studio_integration-windows-x86_64-12.4.127-archive.zip",
+            "https://developer.download.nvidia.com/compute/cuda/redist/cuda_nvprof/windows-x86_64/cuda_nvprof-windows-x86_64-12.4.127-archive.zip",
+            "https://developer.download.nvidia.com/compute/cuda/redist/cuda_cccl/windows-x86_64/cuda_cccl-windows-x86_64-12.4.127-archive.zip"
+          )
+
+          foreach ($url in $archives) {
+            $name = Split-Path $url -Leaf
+            $zipPath = Join-Path $dlDir $name
+            curl.exe -fsSL --retry 5 -o $zipPath $url
+            7z x $zipPath -o"$dlDir" -y | Out-Null
+            $folderName = $name -replace "\.zip$", ""
+            Copy-Item -Path (Join-Path $dlDir "$folderName\*") -Destination $cudaDir -Recurse -Force
+          }
+
+          Remove-Item -Recurse -Force $dlDir
+          "$cudaDir\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          "CUDA_PATH=$cudaDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "CUDA_PATH_V12_4=$cudaDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Prepare PrismML source + PTQ1_SB patch + Web UI
+        shell: pwsh
+        run: |
+          $prismCommit = "6447906bf96c1a023980d3453fb59daa6af3bb23"
+          New-Item -ItemType Directory -Force -Path build-win\llsrc | Out-Null
+          curl.exe -fsSL --retry 5 "https://codeload.github.com/PrismML-Eng/llama.cpp/tar.gz/$prismCommit" -o build-win\prism_src.tar.gz
+          tar -xzf build-win\prism_src.tar.gz -C build-win\llsrc --strip-components=1
+          git -C build-win\llsrc init -q
+          $patchPath = (Resolve-Path "patches\prismll_ptq1_sb_cuda_metal.patch").Path
+          git -C build-win\llsrc apply "$patchPath"
+          New-Item -ItemType Directory -Force -Path build-win\llsrc\tools\ui\dist | Out-Null
+          Copy-Item -Path ui-dist\* -Destination build-win\llsrc\tools\ui\dist\ -Recurse -Force
+
+      - name: Configure and build with CUDA 12.4
+        shell: cmd
+        run: |
+          nvcc --version
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          cmake -S build-win\llsrc -B build-win\llbuild -G "Ninja Multi-Config" ^
+            -DGGML_NATIVE=OFF ^
+            -DGGML_AVX2=ON ^
+            -DGGML_CUDA=ON ^
+            -DGGML_CUDA_CCCL_VERSION=v3.4.3 ^
+            -DCMAKE_CUDA_ARCHITECTURES="61-virtual;75-virtual;80-virtual;86-real;89-real;90-virtual" ^
+            -DLLAMA_OPENSSL=OFF ^
+            -DLLAMA_CURL=OFF ^
+            -DLLAMA_BUILD_EXAMPLES=OFF ^
+            -DLLAMA_BUILD_TESTS=OFF ^
+            -DLLAMA_BUILD_TOOLS=ON ^
+            -DLLAMA_BUILD_SERVER=ON ^
+            -DLLAMA_BUILD_UI=OFF ^
+            -DLLAMA_USE_PREBUILT_UI=OFF
+          set /A NINJA_JOBS=%NUMBER_OF_PROCESSORS%-1
+          cmake --build build-win\llbuild --config Release -j %NINJA_JOBS% --target llama-server llama-cli
+
+      - name: Verify embedded UI, stage bundle, smoke test, and zip
+        shell: pwsh
+        run: |
+          $uiCpp = Get-Item "build-win\llbuild\tools\ui\ui.cpp"
+          Write-Host "Generated ui.cpp size: $($uiCpp.Length) bytes"
+          if ($uiCpp.Length -lt 100000) {
+            throw "Web UI was NOT embedded into ui.cpp! Size=$($uiCpp.Length)"
+          }
+          if (-not (Test-Path "build-win\llbuild\bin\Release\ggml-cuda.dll")) {
+            throw "ggml-cuda.dll not produced!"
+          }
+
+          $bundle = "Caphlon-2-Windows-NVIDIA-CUDA"
+          $binDst = Join-Path $bundle "bin"
+          New-Item -ItemType Directory -Force -Path $binDst | Out-Null
+
+          Copy-Item "build-win\llbuild\bin\Release\llama-server.exe" $binDst -Force
+          Copy-Item "build-win\llbuild\bin\Release\llama-cli.exe" $binDst -Force
+          Copy-Item "build-win\llbuild\bin\Release\*.dll" $binDst -Force
+
+          $cudaDlls = Get-ChildItem -Path $env:CUDA_PATH -Recurse -File -Include "cudart64_*.dll", "cublas64_*.dll", "cublasLt64_*.dll"
+          foreach ($dll in $cudaDlls) {
+            Copy-Item $dll.FullName $binDst -Force
+          }
+          if (-not (Get-ChildItem $binDst -Filter "cudart64_*.dll")) { throw "Missing cudart64 DLL!" }
+          if (-not (Get-ChildItem $binDst -Filter "cublas64_*.dll")) { throw "Missing cublas64 DLL!" }
+          if (-not (Get-ChildItem $binDst -Filter "cublasLt64_*.dll")) { throw "Missing cublasLt64 DLL!" }
+
+          $crtDirs = Get-ChildItem "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC" -Directory -ErrorAction SilentlyContinue | Sort-Object Name -Descending
+          foreach ($d in $crtDirs) {
+            $crt = Join-Path $d.FullName "x64\Microsoft.VC143.CRT"
+            if (Test-Path $crt) {
+              Copy-Item (Join-Path $crt "*.dll") $binDst -Force -ErrorAction SilentlyContinue
+              break
+            }
+          }
+
+          $crlfFiles = @(
+            @{ Src = "scripts\bundle\START-CAPHLON2.bat"; Dst = (Join-Path $bundle "START-CAPHLON2.bat") },
+            @{ Src = "scripts\bundle\CHAT-TERMINAL.bat"; Dst = (Join-Path $bundle "CHAT-TERMINAL.bat") },
+            @{ Src = "scripts\bundle\README-WINDOWS.txt"; Dst = (Join-Path $bundle "README.txt") }
+          )
+          foreach ($item in $crlfFiles) {
+            $txt = (Get-Content -Raw $item.Src) -replace "\r?\n", "`r`n"
+            [System.IO.File]::WriteAllText((Join-Path $PWD $item.Dst), $txt, [System.Text.Encoding]::ASCII)
+          }
+
+          Write-Host "Staged bundle files:"
+          Get-ChildItem -Recurse $bundle | Select-Object FullName, Length
+
+          & ".\$bundle\bin\llama-server.exe" --help | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "llama-server.exe --help failed with $LASTEXITCODE" }
+          & ".\$bundle\bin\llama-cli.exe" --help | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "llama-cli.exe --help failed with $LASTEXITCODE" }
+
+          7z a -tzip Caphlon-2-Windows-NVIDIA-CUDA.zip "$bundle"
+          Get-Item Caphlon-2-Windows-NVIDIA-CUDA.zip | Select-Object Name, Length
+
+      - name: Upload Windows CUDA bundle to Release v2.0.0
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload v2.0.0 Caphlon-2-Windows-NVIDIA-CUDA.zip --clobber --repo demiralpdev/Caphlon-Model
+
+  build-linux-cuda:
+    needs: [build-ui]
+    runs-on: ubuntu-24.04
+    container: nvidia/cuda:12.4.1-devel-ubuntu24.04
+    steps:
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git build-essential cmake ninja-build curl ca-certificates
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure git safe directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Download Web UI assets
+        uses: actions/download-artifact@v4
+        with:
+          name: llama-ui-dist
+          path: ui-dist
+
+      - name: Prepare PrismML source + PTQ1_SB patch + Web UI
+        run: |
+          PRISM_COMMIT="6447906bf96c1a023980d3453fb59daa6af3bb23"
+          mkdir -p build-lin/llsrc
+          curl -fsSL --retry 5 "https://codeload.github.com/PrismML-Eng/llama.cpp/tar.gz/${PRISM_COMMIT}" -o build-lin/prism_src.tar.gz
+          tar -xzf build-lin/prism_src.tar.gz -C build-lin/llsrc --strip-components=1
+          git -C build-lin/llsrc init -q
+          git -C build-lin/llsrc apply ../../patches/prismll_ptq1_sb_cuda_metal.patch
+          mkdir -p build-lin/llsrc/tools/ui/dist
+          cp -r ui-dist/* build-lin/llsrc/tools/ui/dist/
+
+      - name: Configure and build with CUDA 12.4
+        run: |
+          nvcc --version
+          cmake -S build-lin/llsrc -B build-lin/llbuild -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_RPATH='$ORIGIN' \
+            -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON \
+            -DGGML_NATIVE=OFF \
+            -DGGML_AVX2=ON \
+            -DGGML_CUDA=ON \
+            -DGGML_CUDA_NCCL=OFF \
+            -DGGML_CUDA_CCCL_VERSION=v3.4.3 \
+            -DCMAKE_CUDA_ARCHITECTURES="61-virtual;75-virtual;80-virtual;86-real;89-real;90-virtual" \
+            -DLLAMA_OPENSSL=OFF \
+            -DLLAMA_CURL=OFF \
+            -DLLAMA_BUILD_EXAMPLES=OFF \
+            -DLLAMA_BUILD_TESTS=OFF \
+            -DLLAMA_BUILD_TOOLS=ON \
+            -DLLAMA_BUILD_SERVER=ON \
+            -DLLAMA_BUILD_UI=OFF \
+            -DLLAMA_USE_PREBUILT_UI=OFF
+          cmake --build build-lin/llbuild --target llama-server llama-cli -j "$(nproc)"
+
+      - name: Verify embedded UI, stage bundle, smoke test, and tar
+        run: |
+          UI_CPP_SIZE="$(wc -c < build-lin/llbuild/tools/ui/ui.cpp)"
+          echo "Generated ui.cpp size: $UI_CPP_SIZE bytes"
+          test "$UI_CPP_SIZE" -gt 100000
+          test -f build-lin/llbuild/bin/libggml-cuda.so || ls -la build-lin/llbuild/bin/
+
+          BUNDLE="Caphlon-2-Linux-NVIDIA-CUDA"
+          mkdir -p "$BUNDLE/bin"
+          cp -P build-lin/llbuild/bin/llama-server "$BUNDLE/bin/"
+          cp -P build-lin/llbuild/bin/llama-cli "$BUNDLE/bin/"
+          cp -P build-lin/llbuild/bin/*.so* "$BUNDLE/bin/"
+          cp -L /usr/local/cuda/lib64/libcudart.so.12 "$BUNDLE/bin/"
+          cp -L /usr/local/cuda/lib64/libcublas.so.12 "$BUNDLE/bin/"
+          cp -L /usr/local/cuda/lib64/libcublasLt.so.12 "$BUNDLE/bin/"
+          cp scripts/bundle/START-CAPHLON2.sh "$BUNDLE/START-CAPHLON2.sh"
+          chmod +x "$BUNDLE/bin/llama-server" "$BUNDLE/bin/llama-cli" "$BUNDLE/START-CAPHLON2.sh"
+
+          mkdir -p build-lin/stub
+          ln -sf /usr/local/cuda/lib64/stubs/libcuda.so build-lin/stub/libcuda.so.1
+          LD_LIBRARY_PATH="$PWD/$BUNDLE/bin:$PWD/build-lin/stub" "./$BUNDLE/bin/llama-server" --help >/dev/null
+          LD_LIBRARY_PATH="$PWD/$BUNDLE/bin:$PWD/build-lin/stub" "./$BUNDLE/bin/llama-cli" --help >/dev/null
+
+          tar -czvf Caphlon-2-Linux-NVIDIA-CUDA.tar.gz "$BUNDLE"
+          ls -lh Caphlon-2-Linux-NVIDIA-CUDA.tar.gz
+
+      - name: Upload Linux bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-cuda-bundle
+          path: Caphlon-2-Linux-NVIDIA-CUDA.tar.gz
+          retention-days: 1
+
+  publish-linux-cuda:
+    needs: [build-linux-cuda]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Linux bundle artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-cuda-bundle
+
+      - name: Upload Linux CUDA bundle to Release v2.0.0
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload v2.0.0 Caphlon-2-Linux-NVIDIA-CUDA.tar.gz --clobber --repo demiralpdev/Caphlon-Model

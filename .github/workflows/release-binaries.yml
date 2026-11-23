@@ -112,8 +112,10 @@ jobs:
           curl.exe -fsSL --retry 5 "https://codeload.github.com/PrismML-Eng/llama.cpp/tar.gz/$prismCommit" -o build-win\prism_src.tar.gz
           tar -xzf build-win\prism_src.tar.gz -C build-win\llsrc --strip-components=1
           git -C build-win\llsrc init -q
-          $patchPath = (Resolve-Path "patches\prismll_ptq1_sb_cuda_metal.patch").Path
-          git -C build-win\llsrc apply "$patchPath"
+          $patchLf = Join-Path $PWD "build-win\prism.patch"
+          $rawPatch = [System.IO.File]::ReadAllText((Join-Path $PWD "patches\prismll_ptq1_sb_cuda_metal.patch"))
+          [System.IO.File]::WriteAllText($patchLf, ($rawPatch -replace "`r`n", "`n"), [System.Text.UTF8Encoding]::new($false))
+          git -C build-win\llsrc apply "$patchLf"
           New-Item -ItemType Directory -Force -Path build-win\llsrc\tools\ui\dist | Out-Null
           Copy-Item -Path ui-dist\* -Destination build-win\llsrc\tools\ui\dist\ -Recurse -Force
 
@@ -206,7 +208,7 @@ jobs:
   build-linux-cuda:
     needs: [build-ui]
     runs-on: ubuntu-24.04
-    container: nvidia/cuda:12.4.1-devel-ubuntu24.04
+    container: nvidia/cuda:12.4.1-devel-ubuntu22.04
     steps:
       - name: Install build dependencies
         run: |
@@ -271,9 +273,11 @@ jobs:
           cp -P build-lin/llbuild/bin/llama-server "$BUNDLE/bin/"
           cp -P build-lin/llbuild/bin/llama-cli "$BUNDLE/bin/"
           cp -P build-lin/llbuild/bin/*.so* "$BUNDLE/bin/"
-          cp -L /usr/local/cuda/lib64/libcudart.so.12 "$BUNDLE/bin/"
-          cp -L /usr/local/cuda/lib64/libcublas.so.12 "$BUNDLE/bin/"
-          cp -L /usr/local/cuda/lib64/libcublasLt.so.12 "$BUNDLE/bin/"
+          for lib in libcudart.so.12 libcublas.so.12 libcublasLt.so.12; do
+            found="$(find -L /usr/local/cuda/lib64 /usr/lib/x86_64-linux-gnu -maxdepth 1 -name "$lib" -print -quit 2>/dev/null || true)"
+            test -n "$found"
+            cp -L "$found" "$BUNDLE/bin/$lib"
+          done
           cp scripts/bundle/START-CAPHLON2.sh "$BUNDLE/START-CAPHLON2.sh"
           chmod +x "$BUNDLE/bin/llama-server" "$BUNDLE/bin/llama-cli" "$BUNDLE/START-CAPHLON2.sh"
 

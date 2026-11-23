@@ -378,20 +378,37 @@
   @keyframes scrollBob{0%,100%{transform:translateY(-1px)}50%{transform:translateY(3px)}}
 
   @media (max-width:680px){
-    nav{padding:12px 16px}
-    nav .mark{font-size:18px}
+    nav{padding:10px 12px}
+    nav .mark{font-size:17px}
+    nav .links{gap:8px;font-size:10px;letter-spacing:.08em}
     nav .links a:not(.keep){display:none}
+    .scene-hud{padding:6px 10px;font-size:10px;gap:5px;box-shadow:2px 2px 0 var(--clay)}
     .scene-hud .hud-name,.scene-hud .hud-sep{display:none}
-    text.lens-text{letter-spacing:0.01em!important}
-    .hero-card .lede{font-size:15.5px!important}
-    .story-card:not(.hero-card){
-      width:94vw;
-      padding:14px 16px;
+    .story-viewport{
+      position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important;
     }
+    text.lens-text{letter-spacing:0.01em!important}
+    .hero-card{
+      left:50%!important;width:min(92vw, 440px)!important;max-width:92vw!important;
+      top:var(--mob-hero-top, 230px)!important;bottom:auto!important;
+    }
+    .hero-card .tag{font-size:10px;letter-spacing:.12em;margin-bottom:6px}
+    .hero-card .lede{font-size:14.5px!important;line-height:1.42;margin-bottom:12px}
+    .story-card:not(.hero-card){
+      left:50%!important;
+      width:92vw!important;max-width:92vw!important;
+      padding:14px 14px!important;
+      max-height:var(--mob-card-maxh, calc(100dvh - 320px))!important;
+      overflow-y:auto!important;
+      -webkit-overflow-scrolling:touch;
+      touch-action:pan-y;
+    }
+    .tbl-wrap,.term-box pre{touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch}
+    .tbl th,.tbl td{padding:7px 8px;font-size:12px}
     .stats-grid{grid-template-columns:repeat(2,1fr);gap:8px}
     .stat-tile{padding:10px 8px}
-    .stat-tile .k{font-size:22px}
-    .btn{padding:10px 14px;font-size:11px}
+    .stat-tile .k{font-size:21px}
+    .btn{padding:10px 13px;font-size:10.5px}
   }
   @media (prefers-reduced-motion:reduce){
     .story-card{transition:none!important;clip-path:none!important}
@@ -752,30 +769,53 @@
       stageEl.style.setProperty('--stage-bottom', (-bottomCrop).toFixed(1) + 'px');
     }
 
-    // Set Caphlon SVG title to its full, bold 380px presence matching the original design
+    // Set Caphlon SVG title: keep full 380px on desktop, clamp by visible viewport width on mobile/tablet so letters never clip
+    var isMobile = vw <= 680;
+    var maxSvgFontByW = (((vw * 0.88) / stageW) * 1920) / 3.95;
     var svgY = 432;
-    var svgFontSize = 380;
-    if (vw < 680) {
-      svgY = (vh < 740) ? 370 : 400;
-      svgFontSize = 148;
+    var svgFontSize = Math.min(380, maxSvgFontByW);
+    if (isMobile) {
+      svgFontSize = Math.max(88, Math.min(134, maxSvgFontByW));
+      // Place Caphlon title cleanly below navbar in the upper sky so hero card + buttons clear the camper van
+      var mobTitleTopY = navH + Math.max(16, vh * 0.03);
+      var mobTitleBaseY = mobTitleTopY + ((svgFontSize * 0.72) / 1080) * stageH;
+      svgY = ((mobTitleBaseY - stageTop) / stageH) * 1080;
     } else if (vw < 960) {
-      svgFontSize = 260;
+      svgFontSize = Math.min(260, maxSvgFontByW);
       svgY = 416;
     }
     for (var i = 0; i < lensTexts.length; i++) {
-      lensTexts[i].setAttribute('y', svgY.toString());
-      lensTexts[i].style.fontSize = svgFontSize + 'px';
+      lensTexts[i].setAttribute('y', svgY.toFixed(1));
+      lensTexts[i].style.fontSize = svgFontSize.toFixed(1) + 'px';
     }
 
-    // Chapters 1-4 story cards safe zone (above camper van, below navbar):
+    // Safe vertical window between top navbar and camper van roof antenna
     var vanTopScreenY = stageTop + stageH * 0.6555;
-    var safeTopScreenY = navH + Math.max(12, vh * 0.018);
-    var safeBottomScreenY = Math.min(vh - 76, vanTopScreenY - Math.max(10, vh * 0.014));
+    var safeTopScreenY = navH + Math.max(10, vh * 0.015);
+    var safeBottomScreenY = Math.min(vh - 72, vanTopScreenY - Math.max(10, vh * 0.015));
     var chapAvailH = Math.max(180, safeBottomScreenY - safeTopScreenY - 8);
+
+    if (isMobile && stageEl) {
+      var titleBottomY = stageTop + ((svgY + svgFontSize * 0.22) / 1080) * stageH;
+      var heroNatH = (heroCardEl && heroCardEl.offsetHeight) ? heroCardEl.offsetHeight : 165;
+      var mobHeroSpace = Math.max(heroNatH + 8, safeBottomScreenY - titleBottomY);
+      var mobHeroTop = titleBottomY + Math.max(10, (mobHeroSpace - heroNatH) * 0.42);
+      if (mobHeroTop + heroNatH > safeBottomScreenY) {
+        mobHeroTop = Math.max(titleBottomY + 6, safeBottomScreenY - heroNatH);
+      }
+      stageEl.style.setProperty('--mob-hero-top', mobHeroTop.toFixed(1) + 'px');
+      stageEl.style.setProperty('--mob-card-maxh', Math.max(220, safeBottomScreenY - safeTopScreenY).toFixed(1) + 'px');
+    }
 
     for (var ci = 1; ci < cards.length; ci++) {
       var cEl = cards[ci];
       if (!cEl) continue;
+      if (isMobile) {
+        // Mobile .story-viewport is fixed 100vw x 100dvh; position cleanly under navbar without tiny scaling
+        cEl.style.setProperty('--card-scale', '1');
+        cEl.style.setProperty('--card-top', safeTopScreenY.toFixed(1) + 'px');
+        continue;
+      }
       var cNatH = cEl.offsetHeight || cEl.scrollHeight || 460;
       if (cNatH < 180) cNatH = 460;
       var cScale = (chapAvailH < cNatH) ? Math.max(0.58, (chapAvailH - 4) / cNatH) : 1;
@@ -1155,16 +1195,21 @@
     }
   }, { passive: false });
 
-  // Touch Swipe navigation
+  // Touch Swipe navigation (ignore horizontal table/code-block scrolls)
   var touchStartY = 0;
+  var touchStartX = 0;
   window.addEventListener('touchstart', function(e) {
-    if (e.touches.length) touchStartY = e.touches[0].clientY;
+    if (e.touches.length) {
+      touchStartY = e.touches[0].clientY;
+      touchStartX = e.touches[0].clientX;
+    }
   }, { passive: true });
 
   window.addEventListener('touchend', function(e) {
     if (isTransitioning || !e.changedTouches.length) return;
-    var touchEndY = e.changedTouches[0].clientY;
-    var dy = touchStartY - touchEndY;
+    var dy = touchStartY - e.changedTouches[0].clientY;
+    var dx = touchStartX - e.changedTouches[0].clientX;
+    if (Math.abs(dx) > Math.abs(dy)) return;
     if (dy > 45) {
       if (curChap < CHAPTERS.length - 1) goToChapter(curChap + 1);
     } else if (dy < -45) {
